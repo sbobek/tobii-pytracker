@@ -1,5 +1,5 @@
 import os
-from psychopy import visual, core, monitors
+from psychopy import visual, core, monitors, event
 
 
 def prepare_monitor(config):
@@ -240,3 +240,40 @@ def save_screenshot(config, window, data, is_text, output_folder):
     screenshot.crop(crop_box).save(screenshot_path, 'PNG')
 
     return screenshot_path
+
+
+
+def show_instructions(window, text_lines, key='space'):
+    """
+    Display centered multi-line instruction text on a black background,
+    and wait for the participant to press the specified key (default: SPACE).
+    Automatically adapts wrap width and text size to the current window size.
+    """
+    # Get window size (width, height)
+    win_width, win_height = window.size
+
+    # Calculate text size and wrapping dynamically
+    # About 1/25th of screen height looks readable
+    text_height = win_height / 25
+    wrap_width = win_width * 0.8  # leave margins on sides
+
+    instruction_text = "\n\n".join(text_lines)
+
+    message = visual.TextStim(
+        win=window,
+        text=instruction_text,
+        color='white',
+        height=text_height,
+        wrapWidth=wrap_width,
+        alignText='center',
+        pos=(0, 0)
+    )
+
+    # Draw text and flip
+    window.flip()  # clear screen
+    message.draw()
+    window.flip()
+
+    # Wait for SPACE (or chosen key)
+    event.waitKeys(keyList=[key])
+    core.wait(0.2)

@@ -15,6 +15,21 @@ from datasets.custom_dataset import CustomDataset
 
 LOGGER = None
 
+intro_text = [
+    "Welcome to the study!",
+    "In this experiment, you will see a series of images or text samples.",
+    "Please look at each stimulus carefully, then select the appropriate option using the buttons below.",
+    "Your gaze and voice may be recorded for analysis.",
+    "Press SPACE to begin."
+]
+
+outro_text = [
+    "Thank you for participating in this study!",
+    "",
+    "Your responses and recordings have been saved.",
+    "You may now close the window or press ESC to exit.",
+]
+
 
 def main(config, loop_count, eyetracker_config_file, enable_eyetracker, enable_model, enable_voice):
     dataset = CustomDataset(config)
@@ -45,6 +60,8 @@ def main(config, loop_count, eyetracker_config_file, enable_eyetracker, enable_m
 
     if loop_count > len(dataset.data):
         loop_count = len(dataset.data)
+
+    gui.show_instructions(window, intro_text)
 
     try:
         with open(output_file, "w", newline='', encoding='utf-8') as csvfile:
@@ -147,6 +164,7 @@ def main(config, loop_count, eyetracker_config_file, enable_eyetracker, enable_m
 
     finally:
         # --- Clean up resources ---
+        gui.show_instructions(window, outro_text, key='escape')
         if enable_eyetracker:
             tracker.setRecordingState(False)
             io.quit()
