@@ -16,3 +16,7 @@ matplotlib==3.9.0
 psutil==5.9.8
 gevent==24.2.1
 msgpack==1.0.8
+# Install pywin32 only on Windows
+pywin32==311; platform_system == "Windows"
+sounddevice==0.5.3; platform_system == "Windows"
+soundfile==0.13.1; platform_system == "Windows"

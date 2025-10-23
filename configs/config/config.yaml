@@ -1,5 +1,5 @@
 dataset:
-  path: datasets/dataset/test_set
+  path: datasets/pdt
   # text:
   #   label_column_name: sentiment
   #   text_column_name: content
