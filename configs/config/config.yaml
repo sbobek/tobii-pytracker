@@ -1,0 +1,36 @@
+dataset:
+  path: datasets/dataset/test_set
+  # text:
+  #   label_column_name: sentiment
+  #   text_column_name: content
+  # path: datasets/dataset/twitter_validation.csv
+
+display:
+  monitor: 
+    name: spectrum_monitor
+    resolution:
+      - 1920
+      - 1080
+    width: 35
+    distance: 60
+  gui:
+    button:
+      size:
+        - 250
+        - 100
+      margin: 20
+      color: lightgrey
+      text:
+        color: black
+        size: 35
+    aoe:
+      - 750
+      - 750
+
+output:
+  folder: output
+
+model:
+  folder: models
+  module: custom_yolo_model
+  class: CustomYoloModel
