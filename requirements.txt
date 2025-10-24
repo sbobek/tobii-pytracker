@@ -1,0 +1,22 @@
+six==1.16.0
+packaging==24.0
+numpy==1.26.4
+PyYAML==6.0.1
+pyserial==3.5
+scipy==1.13.1
+json_tricks==3.17.3
+requests==2.32.2
+pyglet==1.5.2
+Pillow==10.3.0
+python-bidi==0.4.2
+pandas==2.2.2
+arabic_reshaper==3.0.0
+freetype-py==2.4.0
+matplotlib==3.9.0
+psutil==5.9.8
+gevent==24.2.1
+msgpack==1.0.8
+# Install pywin32 only on Windows
+pywin32==311; platform_system == "Windows"
+sounddevice==0.5.3; platform_system == "Windows"
+soundfile==0.13.1; platform_system == "Windows"
