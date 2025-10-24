@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from abc import ABC, abstractmethod
-from utils.custom_logger import CustomLogger
+from tobii_pytracker.utils.custom_logger import CustomLogger
 
 
 class CustomModel(ABC):
