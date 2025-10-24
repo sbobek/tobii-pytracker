@@ -9,8 +9,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 1920
-      - 1080
+      - 3440
+      - 1440
     width: 35
     distance: 60
   gui:
@@ -22,7 +22,7 @@ display:
       color: lightgrey
       text:
         color: black
-        size: 35
+        size: 30
     aoe:
       - 750
       - 750
@@ -34,3 +34,17 @@ model:
   folder: models
   module: custom_yolo_model
   class: CustomYoloModel
+
+instructions:
+  intro:
+    - "Welcome to the study!"
+    - ""
+    - "In this experiment, you will see a series of images or text samples."
+    - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
+    - ""
+    - "Press SPACE to begin."
+  outro:
+    - "Thank you for participating in this study!"
+    - ""
+    - "Your responses and recordings have been saved."
+    - "You may now close the window or press ESC to exit."

@@ -23,6 +23,8 @@ class CustomConfig:
         self.get_button_config()
         self.get_output_config()
         self.get_model_config()
+        self.get_instructions_config()
+        
  
     def get_dataset_config(self):
         try:
@@ -161,3 +163,29 @@ class CustomConfig:
 
         except KeyError as e:
             raise KeyError(f"Invalid or missing aoe field: {e}")
+
+    def get_instructions_config(self):
+        """
+        Retrieve intro and outro instructions from config.
+        Returns a dict with keys: 'intro' and 'outro'.
+        """
+        try:
+            if "instructions" not in self.config:
+                raise KeyError("Missing required section: 'instructions'.")
+
+            instructions_config = self.config["instructions"]
+
+            required_fields = ["intro", "outro"]
+            for field in required_fields:
+                if field not in instructions_config:
+                    raise KeyError(f"Missing required instructions field: '{field}'.")
+
+                if not isinstance(instructions_config[field], list):
+                    raise ValueError(f"Instruction field '{field}' must be a list of text lines.")
+
+            return instructions_config
+
+        except KeyError as e:
+            raise KeyError(f"Invalid or missing instructions configuration: {e}")
+        except ValueError as e:
+            raise ValueError(f"Invalid instructions configuration: {e}")

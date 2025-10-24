@@ -23,44 +23,34 @@ def prepare_window(config, monitor):
     return window
 
 
+
 def prepare_buttons(config, window, dataset):
     classes = dataset.get_classes()
     button_config = config.get_button_config()
-    monitor_config = config.get_monitor_config()
-    resolution_x, resolution_y = monitor_config["resolution"]
 
+    win_width, win_height = window.size
     num_buttons = len(classes)
 
-    min_x, max_x = 300 - resolution_x/2, resolution_x - 300  # 300 pixels margin from left and right side of the screen
-    fixed_y = 100 - resolution_y/2                           # 100 pixels margin from bottom of the screen
+    # Margins in pixels
+    side_margin = 50          # margin from left/right edges
+    bottom_margin = 50        # margin from bottom of screen
+    button_height = button_config["size"][1]
 
-    default_width, default_height = button_config["size"]
-    margin = button_config["margin"]
+    # Compute total width for buttons
+    total_available_width = win_width - 2*side_margin
+    button_width = min(button_config["size"][0], total_available_width / num_buttons)
+    actual_margin = (total_available_width - button_width*num_buttons) / max(num_buttons-1,1)
 
-    total_width = max_x - min_x
+    # Y position of buttons (near bottom)
+    button_y = -win_height/2 + bottom_margin + button_height/2
 
-    space_needed = num_buttons * default_width + (num_buttons - 1) * margin
-
-    if space_needed > total_width:
-        scale = total_width / space_needed
-        button_width = default_width * scale
-        actual_margin = margin * scale
-    else:
-        button_width = default_width
-        actual_margin = margin
-
-    button_height = default_height
-
-    total_button_area = num_buttons * button_width + (num_buttons - 1) * actual_margin
-    start_x = -total_button_area / 2 + button_width / 2
-
-    color = button_config["color"]
-    text_color = button_config["text"]["color"]
+    # X positions (span full width)
+    start_x = -total_available_width/2 + button_width/2
 
     buttons = []
+    text_color = button_config["text"]["color"]
     for i, class_name in enumerate(classes):
         x_pos = start_x + i * (button_width + actual_margin)
-        y_pos = fixed_y
         label = class_name.lower()
         text_size = fit_text_to_area(window, class_name.upper(), button_width, button_height, button_config["text"]["size"])
 
@@ -68,109 +58,151 @@ def prepare_buttons(config, window, dataset):
             window=window,
             width=button_width,
             height=button_height,
-            position=(x_pos, y_pos),
+            position=(x_pos, button_y),
             text=class_name.upper(),
             label=label,
-            fill_color=color,
+            fill_color=button_config["color"],
             text_size=text_size,
             text_color=text_color
         )
-
         buttons.append(button)
 
-    exit_button_text = "EXIT"
-    exit_button_text_size = fit_text_to_area(window, exit_button_text, 100, 100, button_config["text"]["size"])
-    exit_button_position = (resolution_x/2 - 100, resolution_y/2 - 100)  # 100 pixel margin from upper right screen corner
+    # Exit button (top-right)
+    exit_button_size = 100
+    exit_button_position = (win_width/2 - exit_button_size/2, win_height/2 - exit_button_size/2)
+    exit_button_text_size = fit_text_to_area(window, "EXIT", exit_button_size, exit_button_size, button_config["text"]["size"])
     exit_button = create_button(
         window=window,
-        width=100,
-        height=100,
+        width=exit_button_size,
+        height=exit_button_size,
         position=exit_button_position,
-        text=exit_button_text,
+        text="EXIT",
         label="functional_quit",
         fill_color="red",
         text_size=exit_button_text_size,
         text_color="white"
     )
-
     buttons.append(exit_button)
 
     return buttons
 
 
+
 def draw_window(config, window, data, is_text, buttons, focus_time, output_folder, border_width=5):
     button_config = config.get_button_config()
     area_x, area_y = config.get_area_of_interest_size()
+    win_width, win_height = window.size
 
+    # --- Stimulus area in center ---
     data_area = visual.Rect(
         win=window,
-        width=area_x+border_width,
-        height=area_y+border_width,
-        pos=(0,0),
+        width=area_x + border_width,
+        height=area_y + border_width,
+        pos=(0, 0),
         fillColor='white',
         lineColor='white'
     )
+    data_area.draw()
 
-    text = visual.TextStim(
+    # "FOCUS HERE" text above stimulus
+    focus_text = visual.TextStim(
         win=window,
         text="FOCUS HERE",
-        pos=(0,35),
+        pos=(0, area_y / 2 + 35),  # 35 px above stimulus
         height=25,
         color=button_config["text"]["color"],
         bold=False,
         antialias=True
     )
+    focus_text.draw()
 
+    # Cross in the center
     x_text = visual.TextStim(
         win=window,
         text="X",
-        pos=(0,0),
+        pos=(0, 0),
         height=button_config["text"]["size"],
         color="red",
         bold=True,
         antialias=True
     )
-
-    data_area.draw()
-    text.draw()
     x_text.draw()
 
     window.flip()
     core.wait(focus_time)
 
-    for rect, text, _ in buttons:
+    # --- Draw buttons at the bottom ---
+    bottom_y = -win_height / 2 + 50  # 50 px from bottom
+    num_buttons = len(buttons) - 1  # exclude exit button
+    spacing = win_width / (num_buttons + 1)
+
+    for idx, (rect, text, label) in enumerate(buttons[:-1]):  # skip exit button
+        x_pos = -win_width / 2 + (idx + 1) * spacing
+        rect.pos = (x_pos, bottom_y)
+        text.pos = (x_pos, bottom_y)
         rect.draw()
         text.draw()
 
+    # --- Exit button top-right ---
+    exit_button = buttons[-1]
+    rect, text, _ = exit_button
+    rect.pos = (win_width / 2 - 60, win_height / 2 - 60)  # 60 px margin
+    text.pos = (win_width / 2 - 60, win_height / 2 - 60)
+    rect.draw()
+    text.draw()
+
+    # --- Draw stimulus again (image or text) ---
     if is_text:
         text_size = fit_text_to_area(window, data, area_x, area_y, 35)
-        text = visual.TextStim(
+        text_stim = visual.TextStim(
             win=window,
             text=data,
-            pos=(0,0),
+            pos=(0, 0),
             height=text_size,
             color="black",
             bold=False,
             antialias=True
         )
-
         data_area.draw()
-        text.draw()
+        text_stim.draw()
     else:
-        image = visual.ImageStim(
+        image_stim = visual.ImageStim(
             win=window,
             image=data,
-            size=(area_x, area_y)
+            size=(area_x, area_y),
+            pos=(0, 0)
         )
-
         data_area.draw()
-        image.draw()
-    
-    output_screenshot_path = save_screenshot(config, window, data, is_text, output_folder)
+        image_stim.draw()
 
     window.flip()
+    output_screenshot_path = save_screenshot(config, window, data, is_text, output_folder)
 
     return output_screenshot_path
+
+
+def save_screenshot(config, window, data, is_text, output_folder):
+    screenshot = window._getFrame(buffer='front')
+
+    monitor_config = config.get_monitor_config()
+    resolution_x, resolution_y = monitor_config["resolution"]
+    area_x, area_y = config.get_area_of_interest_size()
+
+    if is_text:
+        screenshot_path = os.path.join(output_folder, data[:20]) + '.png'
+    else:
+        screenshot_path = os.path.join(output_folder, os.path.basename(data))
+
+    crop_box = (
+        resolution_x/2 - area_x/2,
+        resolution_y/2 - area_y/2,
+        resolution_x/2 + area_x/2,
+        resolution_y/2 + area_y/2,
+    )
+
+    screenshot.crop(crop_box).save(screenshot_path, 'PNG')
+    #screenshot.save(screenshot_path, 'PNG')
+    return screenshot_path
 
 
 def create_button(window, width, height, position, text, label, fill_color, text_size, text_color, line_color="white", line_width=3, bold=True):
@@ -196,6 +228,7 @@ def create_button(window, width, height, position, text, label, fill_color, text
     return (rect, text, label)
 
 
+
 def fit_text_to_area(window, text, max_width, max_height, initial_size, min_size=10):
     size = initial_size
 
@@ -216,31 +249,6 @@ def fit_text_to_area(window, text, max_width, max_height, initial_size, min_size
         size -= 1
 
     return min_size
-
-
-def save_screenshot(config, window, data, is_text, output_folder):
-    screenshot = window._getFrame(buffer='back')
-
-    monitor_config = config.get_monitor_config()
-    resolution_x, resolution_y = monitor_config["resolution"]
-    area_x, area_y = config.get_area_of_interest_size()
-
-    if is_text:
-        screenshot_path = os.path.join(output_folder, data[:20]) + '.png'
-    else:
-        screenshot_path = os.path.join(output_folder, os.path.basename(data))
-
-    crop_box = (
-        resolution_x/2 - area_x/2,
-        resolution_y/2 - area_y/2,
-        resolution_x/2 + area_x/2,
-        resolution_y/2 + area_y/2,
-    )
-
-    screenshot.crop(crop_box).save(screenshot_path, 'PNG')
-
-    return screenshot_path
-
 
 
 def show_instructions(window, text_lines, key='space'):
