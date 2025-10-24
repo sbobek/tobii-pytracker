@@ -10,7 +10,19 @@ Models
 .. autosummary::
     :toctree: generated/
 
-    tobii_pytracker.models.custom_model.CustomModel
+    tobii_pytracker.models.CustomModel
+    tobii_pytracker.models.CustomYoloModel
+
+
+
+.. _datasetss_api:
+
+Datasets
+-------------
+.. autosummary::
+    :toctree: generated/
+
+    tobii_pytracker.datasets.CustomDataset
 
 
 
