@@ -93,40 +93,27 @@ def draw_window(config, window, data, is_text, buttons, focus_time, output_folde
     area_x, area_y = config.get_area_of_interest_size()
     win_width, win_height = window.size
 
-    # --- Stimulus area in center ---
+    # --- Stimulus area in center (black rectangle) ---
     data_area = visual.Rect(
         win=window,
         width=area_x + border_width,
         height=area_y + border_width,
         pos=(0, 0),
-        fillColor='white',
-        lineColor='white'
+        fillColor='black',  # dark background
+        lineColor='black'
     )
     data_area.draw()
 
-    # "FOCUS HERE" text above stimulus
-    focus_text = visual.TextStim(
+    # --- White fixation dot in the center ---
+    fixation_dot = visual.Circle(
         win=window,
-        text="FOCUS HERE",
-        pos=(0, area_y / 2 + 35),  # 35 px above stimulus
-        height=25,
-        color=button_config["text"]["color"],
-        bold=False,
-        antialias=True
+        radius=5,           # small, visible dot
+        edges=32,
+        fillColor='white',
+        lineColor='white',
+        pos=(0, 0)
     )
-    focus_text.draw()
-
-    # Cross in the center
-    x_text = visual.TextStim(
-        win=window,
-        text="X",
-        pos=(0, 0),
-        height=button_config["text"]["size"],
-        color="red",
-        bold=True,
-        antialias=True
-    )
-    x_text.draw()
+    fixation_dot.draw()
 
     window.flip()
     core.wait(focus_time)
