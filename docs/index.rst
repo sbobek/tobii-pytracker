@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to the Tobii-Pytracker documentation
----------------------------------
+-----------------------------------------------
 
 **Tobii-Pytracker** is a Python-based framework for Tobii eye tracker experiments and multimodal data collection.
 
@@ -20,7 +20,7 @@ To install form PyPI::
 To install from source code::
 
    git clone https://github.com/sbobek/tobii-pytracker
-   cd lux
+   cd tobii-pytracker
    pip install .
 
 .. toctree::
@@ -28,8 +28,6 @@ To install from source code::
    :caption: Tutorials
 
    Basic Usage examples <basic_examples>
-
-
 
 .. toctree::
    :maxdepth: 2
