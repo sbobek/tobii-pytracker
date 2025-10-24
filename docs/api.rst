@@ -10,8 +10,7 @@ Models
 .. autosummary::
     :toctree: generated/
 
-    tobii_pytracker.models.custom_model
-    tobii_pytracker.models.custom_yolo_model
+    tobii_pytracker.models.custom_model.CustomModel
 
 
 
