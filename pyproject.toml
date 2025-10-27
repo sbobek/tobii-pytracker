@@ -10,12 +10,13 @@ readme = "README.md"
 requires-python = ">=3.10,<3.11"
 license = { text = "MIT" }
 authors = [
-  { name = "Szymon Bobek", email = "szymon.bobek@gmail.com" }
+  { name = "Szymon Bobek", email = "szymon.bobek@gmail.com" },
+  { name = "Sebastian Sęczyk", email = "sebastian.seczyk@gmail.com" },
+  { name = "Jakub Pleśniak", email = "jakubpl2001@gmail.com" }
 ]
 dependencies = [
   "six==1.16.0",
   "packaging==24.0",
-  "numpy==1.26.4",
   "PyYAML==6.0.1",
   "pyserial==3.5",
   "scipy==1.13.1",
@@ -31,6 +32,8 @@ dependencies = [
   "psutil==5.9.8",
   "gevent==24.2.1",
   "msgpack==1.0.8",
+  "ultralytics<8.4",
+  "numpy==1.26.4",
   'pywin32==311; platform_system == "Windows"',
   'sounddevice==0.5.3; platform_system == "Windows"',
   'soundfile==0.13.1; platform_system == "Windows"'

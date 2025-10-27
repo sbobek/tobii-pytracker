@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from ultralytics import YOLO
-from models.custom_model import CustomModel
+from .custom_model import CustomModel
 
 
 class CustomYoloModel(CustomModel):
