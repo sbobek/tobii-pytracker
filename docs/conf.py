@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../src/'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'lux-explainer'
+project = 'tobii-pytracker'
 copyright = '2025, Szymon Bobek'
 author = 'Szymon Bobek'
 

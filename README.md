@@ -21,42 +21,27 @@ This toolkit allows to conduct scientific researches of human classification vis
 1. Clone or download this repository to your local machine.
 
     ```sh
-   git clone https://github.com/frieZZerr/UJ-AI-Workshops.git
-   cd UJ-AI-Workshops
+   conda create --name pytracker-env python=3.10
+   conda activate pytracker-env
+   git clone https://github.com/sbobek/tobii-pytracker.git
+   cd tobii-pytracker
+   pip install .
    ```
 
-2. Create a virtual environment:
+   Install psychopy, with no-deps, to keep the installation simple and lightweight.
+   Note that we need psychopy in a version at least 2024.1.4
+   
+   ```sh
+   pip install psychopy>=2024.1.4 --no-deps
+   ```
 
-    ```sh
-    python -m venv venv
-    ```
-
-3. Activate the virtual environment:
-
-    - On Windows:
-
-        ```sh
-        venv\Scripts\activate
-        ```
-
-    - On macOS and Linux:
-
-        ```sh
-        source venv/bin/activate
-        ```
-
-4. Install the required Python packages:
-
-    ```sh
-    ./install_requirements.sh
-    ```
 
 ## Usage
 
-1. To run the script, use the following command:
+1. To run the script, use the following command (make sure you have activated virtual environment):
 
     ```sh
-    python main.py
+    tobii-pytracker
     ```
 
 <sup>*Make sure to connect eyetracker to your device before running the script with `--enable_eyetracker=True`, otherwise it will fail.</sup>
@@ -66,6 +51,7 @@ This toolkit allows to conduct scientific researches of human classification vis
     - `--eyetracker_config_file` - Path to YAML eyetracker config file - _(default = configs/config/eyetracker_config.yaml)_
     - `--enable_eyetracker` - Launch script with launchHubServer (needs connected eyetracker if set to True) - _(default = False)_
     - `--enable_model` - Extend processing for custom YOLO model predictions (only for images) - _(default = False)_
+    - `--enable_voice` - Additionally start recording voice for Think-Aloud-Protocol - _(default = False)_
     - `--loop_count` - Number of times that different data will be displayed before the script exits - _(default = 10)_
     - `--log_level` - Main logger level ("info", "debug", "warning", "error", "critical") - _(default = info)_
 
@@ -146,6 +132,7 @@ Keep in mind that main processing pipeline uses the `process()` method to save p
 ## Configuration
 
 The script requires two configuration files in YAML format: one for general settings and another for eye tracker settings.
+By default, the configuration files are located in `configs`` directory.
 
 ### General Configuration (config.yaml)
 
@@ -182,6 +169,15 @@ model:
   module: module
   class: class
   filename: filename
+
+
+instructions:
+  intro:
+    - "Introductory message."
+    - "Press SPACE to begin."
+  outro:
+    - "Message for the end of the study."
+    - "You may now close the window or press ESC to exit."
 ```
 
 > NOTE: If using a dataset with __text__ data, the path should be specified for a file in a `.csv` format, as well as additional `text` field:
