@@ -8,6 +8,11 @@ Welcome to the Tobii-Pytracker documentation
 
 **Tobii-Pytracker** is a Python-based framework for Tobii eye tracker experiments and multimodal data collection.
 
+.. image:: https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/tobii-pytracker.svg
+    :width: 240px
+    :align: center
+    :alt: Tobii-Pytracker Workflow
+
 Install
 =======
 
