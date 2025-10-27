@@ -22,6 +22,7 @@ To install from source code::
    git clone https://github.com/sbobek/tobii-pytracker
    cd tobii-pytracker
    pip install .
+   pip install psychopy>=2024.1.4 --no-deps
 
 .. toctree::
    :maxdepth: 2

@@ -158,6 +158,9 @@ display:
       text:
         color: text_color
         size: text_size
+      fixation_dot: 
+        size: radius_of_a_dot
+        color: dot_color
     aoe:
       - size_x
       - size_y

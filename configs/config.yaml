@@ -23,6 +23,9 @@ display:
       text:
         color: black
         size: 30
+      fixation_dot: 
+        size: 10
+        color: white
     aoe:
       - 750
       - 750

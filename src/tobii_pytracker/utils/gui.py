@@ -107,10 +107,10 @@ def draw_window(config, window, data, is_text, buttons, focus_time, output_folde
     # --- White fixation dot in the center ---
     fixation_dot = visual.Circle(
         win=window,
-        radius=5,           # small, visible dot
+        radius=configuration["fixation_dot"]["size"],           # small, visible dot
         edges=32,
-        fillColor='white',
-        lineColor='white',
+        fillColor=configuration["fixation_dot"]["color"],
+        lineColor=configuration["fixation_dot"]["color"],
         pos=(0, 0)
     )
     fixation_dot.draw()
