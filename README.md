@@ -2,6 +2,8 @@
 
 This toolkit allows to conduct scientific researches of human classification visual aspect by gathering human gaze data on 2 different types of data. It's modality is defined for images and text. The graphical interface uses PsychoPy library and is created dynamically from a dataset with a strict structure. Main config file allows to override values for different PsychoPy research environments which grants more control over received results. Processing pipeline can be extended with a custom model for additional prediction data to compare with human classification. The data of human eye gaze, as well as average pupil size, is collected with Tobbii eyetracker and saved to a file with the rest of results.
 
+![Alt text](https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/tobii-pytracker.svg)
+
 ## Table of Contents
 - [Requirements](#Requirements)
 - [Installation](#Installation)
