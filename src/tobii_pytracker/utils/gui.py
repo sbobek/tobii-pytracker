@@ -90,6 +90,7 @@ def prepare_buttons(config, window, dataset):
 
 def draw_window(config, window, data, is_text, buttons, focus_time, output_folder, border_width=5):
     button_config = config.get_button_config()
+    fixation_config = config.get_fixation_dot_config()
     area_x, area_y = config.get_area_of_interest_size()
     win_width, win_height = window.size
 
@@ -107,10 +108,10 @@ def draw_window(config, window, data, is_text, buttons, focus_time, output_folde
     # --- White fixation dot in the center ---
     fixation_dot = visual.Circle(
         win=window,
-        radius=configuration["fixation_dot"]["size"],           # small, visible dot
+        radius=fixation_config["size"],           # small, visible dot
         edges=32,
-        fillColor=configuration["fixation_dot"]["color"],
-        lineColor=configuration["fixation_dot"]["color"],
+        fillColor=fixation_config["color"],
+        lineColor=fixation_config["color"],
         pos=(0, 0)
     )
     fixation_dot.draw()
