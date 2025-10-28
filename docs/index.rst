@@ -37,11 +37,9 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
 .. toctree::
    :maxdepth: 2
    :caption: Tutorials
-
+   
+   Commandline Usage <commandline_usage>
    Basic Usage examples <basic_examples>
-   Image data <image_data_examples>
-   Text data <text_data_examples>
-   Audio data <audio_data_examples>
 
 .. toctree::
    :maxdepth: 2
