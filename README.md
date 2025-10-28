@@ -49,15 +49,17 @@ This toolkit allows to conduct scientific researches of human classification vis
 <sup>*Make sure to connect eyetracker to your device before running the script with `--enable_eyetracker=True`, otherwise it will fail.</sup>
 
 2. Additionally you can specify a few arguments:
-    - `--config_file` - Path to YAML script config file - _(default = configs/config/config.yaml)_
-    - `--eyetracker_config_file` - Path to YAML eyetracker config file - _(default = configs/config/eyetracker_config.yaml)_
-    - `--enable_eyetracker` - Launch script with launchHubServer (needs connected eyetracker if set to True) - _(default = False)_
-    - `--enable_model` - Extend processing for custom YOLO model predictions (only for images) - _(default = False)_
-    - `--enable_voice` - Additionally start recording voice for Think-Aloud-Protocol - _(default = False)_
-    - `--loop_count` - Number of times that different data will be displayed before the script exits - _(default = 10)_
-    - `--log_level` - Main logger level ("info", "debug", "warning", "error", "critical") - _(default = info)_
+- `--config_file` - Path to YAML script config file _(default: configs/config.yaml)_
+- `--eyetracker_config_file` - Path to YAML eyetracker config file _(default: configs/eyetracker_config.yaml)_
+- `--enable_eyetracker` - Launch script with launchHubServer (requires connected eyetracker) _(default: False)_
+- `--enable_model` - Extend processing for custom YOLO model predictions (only for images) _(default: False)_
+- `--enable_voice` - Start voice recording for Think-Aloud Protocol _(default: False)_
+- `--raw_data` - Record full Tobii raw samples instead of filtered gaze positions _(default: False)_
+- `--disable_psychopy` - Run headless (no GUI) and continuously record gaze + voice until stopped _(default: False)_
+- `--loop_count` - Number of stimuli to display before exit _(default: 10)_
+- `--log_level` - Logger level ("info", "debug", "warning", "error", "critical") _(default: info)_
 
-For more information and usage you can run `python main.py --help`
+For more information and usage you can run `tobii-pytracker --help`
 
 ## Datasets
 
@@ -160,9 +162,9 @@ display:
       text:
         color: text_color
         size: text_size
-      fixation_dot: 
-        size: radius_of_a_dot
-        color: dot_color
+    fixation_dot: 
+      size: radius_of_a_dot
+      color: dot_color
     aoe:
       - size_x
       - size_y

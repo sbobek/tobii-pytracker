@@ -5,3 +5,10 @@ In case for the contribution, please create fork of the repository and prepare y
 Create pull request on any change you want to add to the software.
 
 In case of any questions, contact szymnon.bobek@gmail.com
+
+Authors
+--------
+
+- Szymon Bobek <szymon.bobek@gmail.com>
+- Sebastian Sęczyk <sebastian.seczyk@gmail.com>
+- Jakub Pleśniak <jakubpl2001@gmail.com>

@@ -1,6 +1,10 @@
 Release notes
 ==============
 
+0.1.2 (2025-10-28)
+-------------
+* Fixed documentation of command-line options
+
 0.1.1 (2025-10-28)
 -------------
 * Added raw data recording option with `--raw_data` flag.
