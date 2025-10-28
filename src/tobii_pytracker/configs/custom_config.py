@@ -122,6 +122,60 @@ class CustomConfig:
         except ValueError as e:
             raise ValueError(f"Invalid button configuration: {e}")
 
+    def get_fixation_dot_config(self):
+        """
+        Retrieve and validate fixation dot configuration from YAML display settings.
+
+        Returns
+        -------
+        dict
+            Dictionary containing fixation dot configuration with validated fields:
+            {
+                "size": <int>,
+                "color": <str>
+            }
+
+        Raises
+        ------
+        KeyError
+            If the fixation dot section or any required field is missing.
+        ValueError
+            If the field values have incorrect types or invalid structure.
+
+        Example YAML
+        ------------
+        display:
+        gui:
+            fixation_dot:
+            size: 10
+            color: white
+        """
+        try:
+            fixation_config = self.config["display"]["gui"]["fixation_dot"]
+
+            if not isinstance(fixation_config, dict):
+                raise ValueError("Fixation dot configuration must be a dictionary.")
+
+            required_fields = ["size", "color"]
+            for field in required_fields:
+                if field not in fixation_config:
+                    raise KeyError(f"Missing required fixation_dot field: {field}")
+
+            # Validate types
+            if not isinstance(fixation_config["size"], int):
+                raise ValueError("'size' in fixation_dot must be an integer (e.g., 10).")
+
+            if not isinstance(fixation_config["color"], str):
+                raise ValueError("'color' in fixation_dot must be a string (e.g., 'white').")
+
+            return fixation_config
+
+        except KeyError as e:
+            raise KeyError(f"Invalid or missing fixation_dot configuration: {e}")
+        except ValueError as e:
+            raise ValueError(f"Invalid fixation_dot configuration: {e}")
+
+
     def get_output_config(self):
         try:
             output_config = self.config["output"]
