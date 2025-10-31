@@ -2,6 +2,8 @@ import yaml
 from psychopy.iohub import launchHubServer
 from .custom_logger import CustomLogger
 from tobii_pytracker.configs.custom_config import CustomConfig
+from psychopy.iohub.devices.eyetracker.hw.mouse.eyetracker import EyeTracker as MouseTracker
+
 
 LOGGER = CustomLogger("debug", "eyetracker").logger
 
@@ -92,6 +94,7 @@ def get_gaze_position(config, tracker):
     ...     print(f"Gaze inside AOI at {gaze}")
     """
     gaze_position = tracker.getPosition()
+    print(gaze_position)
 
     area_x, area_y = config.get_area_of_interest_size()
     if gaze_position is not None:
@@ -207,10 +210,14 @@ def get_avg_pupil_size(tracker):
     >>> if avg_size:
     ...     print(f"Average pupil size: {avg_size} mm")
     """
+
+    if tracker.device_class_path == 'eyetracker.hw.mouse.EyeTracker':
+        return None
+
     sample = tracker.getLastSample()
 
     if sample is not None:
-        avg_pupil_size = (sample[21] + sample[40]) / 2.0  # sample[21]=left_pupil_measure, sample[40]=right_pupil_measure
+        avg_pupil_size = (sample[21] + sample[40]) / 2.0  # sample[21]=left_pupil_measure, sample[40]=right_pupil_measure this is only valid for tobii eye trackers
         return round(avg_pupil_size, 4)
     
     return None

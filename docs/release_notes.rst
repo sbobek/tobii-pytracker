@@ -1,9 +1,13 @@
 Release notes
 ==============
 
-0.1.2 (2025-10-28)
+0.1.2 (2025-10-31)
 -------------
 * Fixed documentation of command-line options
+* Added MouseEyetracker emulator, for testing without Tobii hardware
+* Fixed timestamp synchronization, now timestamps are raw time from core of Psychopy
+* Fixed dependency issues. Psychopy version is now pinned to 2024.1.4 to avoid compatibility issues.
+
 
 0.1.1 (2025-10-28)
 -------------

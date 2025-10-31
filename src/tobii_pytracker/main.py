@@ -13,6 +13,8 @@ from .configs.custom_config import CustomConfig
 from .datasets.custom_dataset import CustomDataset
 
 
+
+
 LOGGER = None
 
 
@@ -227,7 +229,7 @@ def main(config, loop_count, eyetracker_config_file,
                 try:
                     while not next_data:
                         current_time = core.getTime()
-                        gaze_timestamp = round(current_time - last_click_time - focus_time, 4)
+                        gaze_timestamp = current_time #round(current_time - last_click_time - focus_time, 4)
                         mouse = event.Mouse(win=window)
 
                         if enable_eyetracker:
@@ -241,7 +243,9 @@ def main(config, loop_count, eyetracker_config_file,
                                     avg_pupil_size = eyetracker.get_avg_pupil_size(tracker)
                                     gaze_data.append((gaze_position, avg_pupil_size, gaze_timestamp))
                             except Exception as e:
+                                import traceback
                                 LOGGER.error(f"Eye tracker error: {e}")
+                                traceback.print_exc()
 
                         # --- Check button presses ---
                         for rect, text, label in buttons:
