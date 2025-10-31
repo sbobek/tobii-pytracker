@@ -94,7 +94,6 @@ def get_gaze_position(config, tracker):
     ...     print(f"Gaze inside AOI at {gaze}")
     """
     gaze_position = tracker.getPosition()
-    print(gaze_position)
 
     area_x, area_y = config.get_area_of_interest_size()
     if gaze_position is not None:
@@ -211,7 +210,9 @@ def get_avg_pupil_size(tracker):
     ...     print(f"Average pupil size: {avg_size} mm")
     """
 
-    if tracker.device_class_path == 'eyetracker.hw.mouse.EyeTracker':
+    print(tracker.device_class_path)
+
+    if 'mouse' in tracker.device_class_path:
         return None
 
     sample = tracker.getLastSample()

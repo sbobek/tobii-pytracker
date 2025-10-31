@@ -36,7 +36,7 @@ This toolkit allows to conduct scientific researches of human classification vis
    Note that we need psychopy in a version at least 2024.1.4
    
    ```sh
-   pip install psychopy>=2024.1.4 --no-deps
+   pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
    ```
 
 
