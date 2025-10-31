@@ -5,11 +5,7 @@ Tobii-Pytracker supports emulation of eye-tracking data using mouse movements. T
 
 Configuration
 -----------------
-To enable mouse emulation, you need to specify the mouse eye tracker configuration file in your main configuration file (e.g., `config.yaml`). Below is an example of how to set this up:   
-.. code-block:: yaml
-
-  eyetracker:
-    config_file: configs/mouse_eyetracker_config.yaml
+To enable mouse emulation, you need to specify the mouse eye tracker configuration file in your main configuration file (e.g., `config.yaml`). The default, working configuration is provided in  `configs/mouse_eyetracker_config.yaml`.
 
 The remaining usage of the tobii-pytracker remains the same as with a physical eye tracker, except that the gaze data will be derived from mouse movements.
 
@@ -29,6 +25,6 @@ Default configuration assumes following behavior of mouse movements and buttons:
 - Left mouse button pressed simulating a blink event
 
 .. image:: https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/mouse-event.svg
-    :width: 100%
+    :width: 40%
     :align: center
     :alt: Tobii-Pytracker Workflow

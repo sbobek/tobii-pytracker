@@ -1,3 +1,14 @@
+import ctypes
+import atexit
+
+# Initialize COM with multithreaded mode
+ole32 = ctypes.windll.ole32
+COINIT_MULTITHREADED = 0x0
+ole32.CoInitializeEx(None, COINIT_MULTITHREADED)
+
+# Ensure COM is uninitialized on exit
+atexit.register(ole32.CoUninitialize)
+
 import os
 import csv
 import argparse
@@ -11,8 +22,6 @@ from .utils.voice import VoiceRecorder
 from .utils.custom_logger import CustomLogger
 from .configs.custom_config import CustomConfig
 from .datasets.custom_dataset import CustomDataset
-
-
 
 
 LOGGER = None
