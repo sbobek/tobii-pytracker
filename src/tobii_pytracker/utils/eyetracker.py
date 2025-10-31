@@ -210,8 +210,6 @@ def get_avg_pupil_size(tracker):
     ...     print(f"Average pupil size: {avg_size} mm")
     """
 
-    print(tracker.device_class_path)
-
     if 'mouse' in tracker.device_class_path:
         return None
 
