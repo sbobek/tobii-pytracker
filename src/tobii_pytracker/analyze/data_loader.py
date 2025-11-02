@@ -2,16 +2,20 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import ast
-
 from tobii_pytracker.configs.custom_config import CustomConfig
-from .base_analyzer import GazePoint
-from .classic_analyzers import FixationAnalyzer,HeatmapAnalyzer,FocusMapAnalyzer
-from .cluster_analyzer import ClusterAnalyzer
-from .concept_analyzer import ConceptAnalyzer
-from .transcript_analyzer import TranscriptAnalyzer
+
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class GazePoint:
+    x: Optional[float]
+    y: Optional[float]
+    pupil_size: Optional[float]  # renamed from 'event'
+    timestamp: float
 
 
-class Analyzer:
+class DataLoader:
     """
     Main analysis orchestrator.
     Handles loading data from each participant’s set folder (set_name),
@@ -87,49 +91,3 @@ class Analyzer:
         """Return list of all discovered subjects."""
         return self.subjects
 
-    # ======================================================
-    # ANALYSIS WRAPPERS
-    # ======================================================
-    def analyze_one(self, set_name: str, slide_index: int) -> Dict[str, Any]:
-        """Run all analyzers on a single slide."""
-        slide_data = self.get_slide_data(set_name, slide_index)
-        data_csv = self.output_root / set_name / "data.csv"
-
-        fixation = FixationAnalyzer(self.config, self.output_root / set_name, data_csv)
-        cluster = ClusterAnalyzer(self.config, self.output_root / set_name, data_csv)
-        concept = ConceptAnalyzer(self.config, self.output_root / set_name, backbone="resnet", data_csv=data_csv)
-        transcript = TranscriptAnalyzer(self.config, self.output_root / set_name, data_csv=data_csv)
-        heatmap = HeatmapAnalyzer(self.config, self.output_root / set_name, data_csv=data_csv)
-        focusmap = FocusMapAnalyzer(self.config, self.output_root / set_name, data_csv=data_csv)
-
-        return {
-            "fixations": fixation.analyze_one(slide_index),
-            "clusters": cluster.analyze_one(slide_index),
-            "concepts": concept.analyze_one(slide_index),
-            "transcripts": transcript.analyze_one(slide_index),
-            "heatmap": heatmap.analyze_one(slide_index),
-            "focusmap": focusmap.analyze_one(slide_index),
-        }
-
-    def analyze_subject(self, set_name: str) -> Dict[str, Any]:
-        """Run all analyzers for all slides in one subject folder."""
-        data_csv = self.output_root / set_name / "data.csv"
-        fixation = FixationAnalyzer(self.config, self.output_root / set_name, data_csv)
-        cluster = ClusterAnalyzer(self.config, self.output_root / set_name, data_csv)
-        concept = ConceptAnalyzer(self.config, self.output_root / set_name, backbone="resnet", data_csv=data_csv)
-        transcript = TranscriptAnalyzer(self.config, self.output_root / set_name, data_csv)
-
-        return {
-            "fixations": fixation.analyze_subject(set_name),
-            "clusters": cluster.analyze_subject(set_name),
-            "concepts": concept.analyze_subject(set_name),
-            "transcripts": transcript.analyze_subject(set_name),
-        }
-
-    def analyze_all(self) -> Dict[str, Any]:
-        """Run analyzers across all participants."""
-        results = {}
-        for s in self.subjects:
-            print(f"[INFO] Analyzing subject: {s}")
-            results[s] = self.analyze_subject(s)
-        return results

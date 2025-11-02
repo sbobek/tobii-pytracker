@@ -2,7 +2,6 @@ import yaml
 from psychopy.iohub import launchHubServer
 from .custom_logger import CustomLogger
 from tobii_pytracker.configs.custom_config import CustomConfig
-from psychopy.iohub.devices.eyetracker.hw.mouse.eyetracker import EyeTracker as MouseTracker
 
 
 LOGGER = CustomLogger("debug", "eyetracker").logger

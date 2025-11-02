@@ -1,14 +1,3 @@
-import ctypes
-import atexit
-
-# Initialize COM with multithreaded mode
-ole32 = ctypes.windll.ole32
-COINIT_MULTITHREADED = 0x0
-ole32.CoInitializeEx(None, COINIT_MULTITHREADED)
-
-# Ensure COM is uninitialized on exit
-atexit.register(ole32.CoUninitialize)
-
 import os
 import csv
 import argparse
