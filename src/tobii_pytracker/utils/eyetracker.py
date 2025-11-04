@@ -5,6 +5,8 @@ from tobii_pytracker.configs.custom_config import CustomConfig
 
 
 LOGGER = CustomLogger("debug", "eyetracker").logger
+_BUTTON_MAP = {"LEFT_BUTTON": 0, "MIDDLE_BUTTON": 1, "RIGHT_BUTTON": 2}
+
 
 def launch_hub_server(eyetracker_config_file, window):
     """
@@ -53,169 +55,182 @@ def launch_hub_server(eyetracker_config_file, window):
 
     return io, tracker
 
-def get_gaze_position(config, tracker):
+def poll_tracker_events(tracker, buffer, last_event_id=0):
     """
-    Retrieve the current gaze position if it lies within the defined
-    area of interest (AOI).
-
-    This function queries the Tobii tracker for the most recent gaze position
-    and checks whether it falls within a rectangular AOI defined by the
-    experimental configuration. If the gaze lies inside the AOI, the
-    coordinates are rounded and returned; otherwise, ``(None, None)`` is
-    returned.
-
-    Parameters
-    ----------
-    config : CustomConfig
-        Configuration object providing AOI dimensions via
-        `config.get_area_of_interest_size()`.
-    tracker : psychopy.iohub.devices.eyetracker.EyeTrackerDevice
-        The active Tobii tracker object created by `launchHubServer()`.
-
-    Returns
-    -------
-    tuple of (float or None, float or None)
-        Rounded gaze coordinates ``(x, y)`` if inside the AOI, otherwise
-        ``(None, None)``.
-
-    Notes
-    -----
-    - This function performs a simple spatial filter to ignore gaze samples
-      outside the defined AOI.
-    - It is non-blocking and returns immediately with the most recent available
-      gaze position from the tracker buffer.
-    - For full unfiltered raw data, use ``get_full_raw_sample()`` instead.
-
-    Examples
-    --------
-    >>> gaze = get_gaze_position(config, tracker)
-    >>> if gaze != (None, None):
-    ...     print(f"Gaze inside AOI at {gaze}")
+    Poll all new eye-tracker events into a local buffer (no duplicates).
     """
-    gaze_position = tracker.getPosition()
+    max_event_id = last_event_id
 
+    try:
+        all_events = tracker.getEvents()
+    except TypeError:
+        LOGGER.debug("tracker.getEvents() failed; continuing with empty list.")
+        all_events = []
+
+    if not all_events:
+        return buffer, max_event_id
+
+    for ev in all_events:
+        eid = getattr(ev, "event_id", None)
+        if eid is None or eid <= last_event_id:
+            continue
+
+        etype_name = ev.__class__.__name__
+        buffer.setdefault(etype_name, []).append(ev)
+        max_event_id = max(max_event_id, eid)
+
+    # NOTE: do not call tracker.clearEvents() here, to avoid skipping samples
+    return buffer, max_event_id
+
+
+def extract_full_raw_event(buffer, system_time):
+    """Return full raw data from all buffered eye-sample events."""
+    results = []
+    for etype in list(buffer.keys()):
+        events = buffer.pop(etype, [])
+        for ev in events:
+            rec = {k: getattr(ev, k)
+                   for k in dir(ev)
+                   if not k.startswith("_") and not callable(getattr(ev, k, None))}
+            rec["event_type"] = etype
+            rec["system_time"] = system_time
+            results.append(rec)
+    return results
+
+
+def extract_eye_gaze_events(buffer, system_time, config):
+    """Extract gaze and pupil data from buffered events, only if gaze within AOI."""
+    results = []
+
+    # Get AOI bounds
     area_x, area_y = config.get_area_of_interest_size()
-    if gaze_position is not None:
-        if ( gaze_position[0] >= -area_x/2 and gaze_position[0] <= area_x/2 ) and ( gaze_position[1] >= -area_y/2 and gaze_position[1] <= area_y/2 ):
-            return (round(gaze_position[0]), round(gaze_position[1]))
+    half_x, half_y = area_x / 2, area_y / 2
 
-    return (None, None)
+    def within_aoi(x, y):
+        """Check if given (x, y) is inside the AOI."""
+        if x is None or y is None:
+            return False
+        return (-half_x <= x <= half_x) and (-half_y <= y <= half_y)
 
-def get_full_raw_sample(tracker):
+    for etype in list(buffer.keys()):
+        if "EyeSampleEvent" not in etype:
+            continue
+        events = buffer.get(etype, [])
+        if not events:
+            continue
+
+        remaining = []
+        for ev in events:
+            eid = getattr(ev, "event_id", None)
+            if eid is None:
+                remaining.append(ev)
+                continue
+
+            attrs = dir(ev)
+            has_left = any(a.startswith("left_") for a in attrs)
+            has_right = any(a.startswith("right_") for a in attrs)
+
+            rec = {
+                "event_type": etype,
+                "event_id": eid,
+                "logged_time": getattr(ev, "logged_time", getattr(ev, "time", None)),
+                "system_time": system_time,
+                "gaze_x_left": None,
+                "gaze_y_left": None,
+                "gaze_x_right": None,
+                "gaze_y_right": None,
+                "pupil_left": None,
+                "pupil_right": None,
+                "avg_gaze_x": None,
+                "avg_gaze_y": None,
+                "avg_pupil_size": None,
+            }
+
+            if has_left or has_right:
+                # binocular
+                rec["gaze_x_left"] = getattr(ev, "left_gaze_x", None)
+                rec["gaze_y_left"] = getattr(ev, "left_gaze_y", None)
+                rec["gaze_x_right"] = getattr(ev, "right_gaze_x", None)
+                rec["gaze_y_right"] = getattr(ev, "right_gaze_y", None)
+                rec["pupil_left"] = getattr(ev, "left_pupil_measure1", None) or getattr(ev, "left_pupil_measure", None)
+                rec["pupil_right"] = getattr(ev, "right_pupil_measure1", None) or getattr(ev, "right_pupil_measure", None)
+            else:
+                # monocular
+                rec["gaze_x_left"] = getattr(ev, "gaze_x", None)
+                rec["gaze_y_left"] = getattr(ev, "gaze_y", None)
+                rec["pupil_left"] = getattr(ev, "pupil_measure1", None) or getattr(ev, "pupil_measure", None)
+                rec["pupil_right"] = getattr(ev, "pupil_measure2", None)
+
+            # Compute averages (if both exist or one available)
+            gx_l, gx_r = rec["gaze_x_left"], rec["gaze_x_right"]
+            gy_l, gy_r = rec["gaze_y_left"], rec["gaze_y_right"]
+            pl, pr = rec["pupil_left"], rec["pupil_right"]
+
+            if gx_l is not None and gx_r is not None:
+                rec["avg_gaze_x"] = (gx_l + gx_r) / 2
+            elif gx_l is not None:
+                rec["avg_gaze_x"] = gx_l
+            elif gx_r is not None:
+                rec["avg_gaze_x"] = gx_r
+
+            if gy_l is not None and gy_r is not None:
+                rec["avg_gaze_y"] = (gy_l + gy_r) / 2
+            elif gy_l is not None:
+                rec["avg_gaze_y"] = gy_l
+            elif gy_r is not None:
+                rec["avg_gaze_y"] = gy_r
+
+            if pl is not None and pr is not None:
+                rec["avg_pupil_size"] = (pl + pr) / 2
+            elif pl is not None:
+                rec["avg_pupil_size"] = pl
+            elif pr is not None:
+                rec["avg_pupil_size"] = pr
+
+            # ✅ AOI filtering
+            if (
+                within_aoi(rec["gaze_x_left"], rec["gaze_y_left"]) or
+                within_aoi(rec["gaze_x_right"], rec["gaze_y_right"]) or
+                within_aoi(rec["avg_gaze_x"], rec["avg_gaze_y"])
+            ):
+                results.append(rec)
+
+        # update buffer
+        if remaining:
+            buffer[etype] = remaining
+        else:
+            buffer.pop(etype, None)
+
+    return results
+
+
+
+
+
+def get_tracker_class(iohub_config: dict) -> str:
+    """Return the tracker class key name (e.g. 'eyetracker.hw.mouse.EyeTracker')."""
+    for key in iohub_config.keys():
+        if key.lower().startswith("eyetracker.hw."):
+            return key
+    raise ValueError("No eyetracker configuration found in iohub_config.")
+
+
+def is_mouse_eyetracker(iohub_config: dict) -> bool:
+    """Return True if the tracker class is the mouse eyetracker."""
+    tracker_class = get_tracker_class(iohub_config)
+    return "mouse" in tracker_class.lower()
+
+
+def get_mouse_move_button_idx(iohub_config: dict, default="RIGHT_BUTTON") -> int:
     """
-    Retrieve the latest raw Tobii eye-tracker sample with meaningful field names.
-
-    This function returns the most recent gaze sample provided by the PsychoPy
-    ioHub Tobii interface. It is designed to extract *all available raw data fields*
-    from the tracker, including gaze coordinates, pupil size, gaze origin, and eye
-    position for both eyes, without applying any filtering, averaging, or AOI
-    (Area of Interest) restriction.
-
-    The function first attempts to call `sample.as_dict()`, which returns a
-    fully labeled dictionary of all Tobii-provided fields if supported by the
-    current PsychoPy version and Tobii driver. If that is unavailable, it falls
-    back to manually labeling known Tobii fields based on the standard sample
-    ordering used by PsychoPy's EyeTrackerSampleEvent. Any additional fields
-    not matching the expected structure are included as `extra_field_<index>`.
-
-    Parameters
-    ----------
-    tracker : psychopy.iohub.devices.eyetracker.EyeTrackerDevice
-        The active Tobii tracker object created by `launchHubServer()`. It must
-        be in a recording state (i.e., `tracker.setRecordingState(True)` called)
-        before samples can be retrieved.
-
-    Returns
-    -------
-    dict or None
-        A dictionary containing the most recent Tobii gaze sample with descriptive
-        field names. The returned fields typically include (depending on device model
-        and configuration):
-
-        - ``timestamp`` : float — system or tracker timestamp for the sample
-        - ``left_gaze_x``, ``left_gaze_y``, ``left_gaze_z`` : float — left eye gaze position (3D)
-        - ``left_pupil_diameter`` : float — pupil size (mm or device units)
-        - ``left_gaze_origin_x``, ``left_gaze_origin_y``, ``left_gaze_origin_z`` : float — gaze origin position
-        - ``left_eye_position_x``, ``left_eye_position_y``, ``left_eye_position_z`` : float — eye position in world coordinates
-        - ``right_gaze_x``, ``right_gaze_y``, ``right_gaze_z`` : float — right eye gaze position (3D)
-        - ``right_pupil_diameter`` : float — pupil size (mm or device units)
-        - ``right_gaze_origin_x``, ``right_gaze_origin_y``, ``right_gaze_origin_z`` : float — gaze origin position
-        - ``right_eye_position_x``, ``right_eye_position_y``, ``right_eye_position_z`` : float — eye position in world coordinates
-        - ``status`` : int — tracking status flag or validity code
-        - ``extra_field_<index>`` : any — additional fields returned by the tracker
-
-        Returns ``None`` if no new sample is available.
-
-    Notes
-    -----
-    - This call is **non-blocking**: it returns immediately with the most recent
-      buffered sample or ``None`` if no sample has been received yet.
-    - Use this function inside a timed or continuous recording loop to capture
-      sequential raw data samples.
-    - To record all samples over time, see ``record_all_raw_data()``.
-
-    Examples
-    --------
-    >>> sample = get_full_raw_sample(tracker)
-    >>> if sample:
-    ...     print(sample["left_pupil_diameter"], sample["right_pupil_diameter"])
-
+    Read the move button for the mouse eyetracker from iohub_config.
+    Returns PsychoPy button index (0=left, 1=middle, 2=right).
     """
-    sample = tracker.getLastSample()
-    if sample is None:
-        return None
+    tracker_class = get_tracker_class(iohub_config)
+    tracker_conf = iohub_config[tracker_class]
 
-    # Convert PsychoPy iohub sample object (tuple-like) to a dict
-    # `getLastSample()` returns an EyeTrackerSampleEvent instance,
-    # which has `as_dict()` method returning *all* fields.
-    if hasattr(sample, "as_dict"):
-        return sample.as_dict()
-    else:
-        # Fallback: convert tuple to dict with enumerated indices
-        return {f"field_{i}": val for i, val in enumerate(sample)}
+    controls = tracker_conf.get("controls", {})
+    move_button = controls.get("move", default)
+    move_button = move_button.upper()
 
-
-def get_avg_pupil_size(tracker):
-    """
-    Compute the average pupil size across both eyes from the most recent sample.
-
-    This function retrieves the last raw Tobii eye-tracker sample and extracts
-    the left and right pupil size measurements. It returns the arithmetic mean
-    of the two pupil diameters, rounded to four decimal places.
-
-    Parameters
-    ----------
-    tracker : psychopy.iohub.devices.eyetracker.EyeTrackerDevice
-        The active Tobii tracker object created by `launchHubServer()`. It must
-        be recording before samples can be retrieved.
-
-    Returns
-    -------
-    float or None
-        Average pupil size across both eyes, rounded to four decimal places.
-        Returns ``None`` if no valid sample is available.
-
-    Notes
-    -----
-    - The sample indices (21 and 40) correspond to left and right pupil
-      measurements in the PsychoPy/Tobii sample data structure. These may vary
-      slightly depending on device model and SDK version.
-    - For full access to all fields, use ``get_full_raw_sample()``.
-
-    Examples
-    --------
-    >>> avg_size = get_avg_pupil_size(tracker)
-    >>> if avg_size:
-    ...     print(f"Average pupil size: {avg_size} mm")
-    """
-
-    if 'mouse' in tracker.device_class_path:
-        return None
-
-    sample = tracker.getLastSample()
-
-    if sample is not None:
-        avg_pupil_size = (sample[21] + sample[40]) / 2.0  # sample[21]=left_pupil_measure, sample[40]=right_pupil_measure this is only valid for tobii eye trackers
-        return round(avg_pupil_size, 4)
-    
-    return None
+    return _BUTTON_MAP.get(move_button, _BUTTON_MAP[default])

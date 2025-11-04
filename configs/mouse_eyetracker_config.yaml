@@ -146,7 +146,7 @@ eyetracker.hw.mouse.EyeTracker:
 
         # Mouse Button(s) used to make MouseGaze generate a blink event.
         # LEFT_BUTTON, MIDDLE_BUTTON, RIGHT_BUTTON.
-        blink: [LEFT_BUTTON]
+        blink: [LEFT_BUTTON,RIGHT_BUTTON]
 
         # Threshold for saccade generation. Specified in visual degrees.
         saccade_threshold: 0.5
