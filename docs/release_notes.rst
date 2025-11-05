@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-0.1.2 (2025-10-31)
+0.1.2 (2025-11-05)
 -------------
 * Fixed documentation of command-line options
 * Added MouseEyetracker emulator, for testing without Tobii hardware

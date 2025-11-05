@@ -68,3 +68,9 @@ class ScanpathsAnalyzer(BaseAnalyzer):
         self.parent = parent
 
 
+class VoiceTranscription(BaseAnalyzer):
+    def __init__(self, parent):
+        self.parent = parent
+
+
+
