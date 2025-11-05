@@ -9,8 +9,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 3440
-      - 1440
+      - 1536
+      - 960
     width: 35
     distance: 60
   gui:
@@ -27,8 +27,8 @@ display:
       size: 10
       color: white
     aoe:
-      - 750
-      - 750
+      - 450
+      - 450
 
 output:
   folder: output
