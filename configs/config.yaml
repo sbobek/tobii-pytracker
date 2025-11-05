@@ -27,8 +27,8 @@ display:
       size: 10
       color: white
     aoe:
-      - 450
-      - 450
+      - 750
+      - 750
 
 output:
   folder: output

@@ -20,8 +20,10 @@ The main file consists of several sections:
 4. `model`: Specifies the folder containing models, as well as the module and class names for custom models used in the experiment.
 5. `instructions`: Provides introductory and concluding instructions for participants in the experiment.
 
+The example of the main configuration file is shown below:
 
 .. code-block:: yaml
+
     dataset:
     path: datasets/pdt
 
@@ -71,7 +73,7 @@ The main file consists of several sections:
         - ""
         - "Your responses and recordings have been saved."
         - "You may now close the window or press ESC to exit."
-    ```
+
 
 Below is a detailed explanation of each section and its parameters, along with examples.
 
