@@ -20,6 +20,7 @@ Mouse Control
 
 You can define the behavior of the mouse eye tracker in the `mouse_eyetracker_config.yaml` file. This includes settings such as sensitivity, calibration options, and other parameters that affect how mouse movements are translated into gaze data.
 Default configuration assumes following behavior of mouse movements and buttons:
+
 - Moving the mouse cursor without any button pressed does not have any effect on collected data
 - Right mouse button pressed, and moving the mouse will simulate gaze position changes
 - Left mouse button pressed simulating a blink event

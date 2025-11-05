@@ -1,14 +1,13 @@
 
 from pathlib import Path
 from typing import  Optional, Any
-
+from .data_loader import DataLoader
 
 
 class BaseAnalyzer:
-    def __init__(self, config,  output_folder: Path, data_csv: Optional[Path] = None):
-        self.config = config
+    def __init__(self, data_loader: DataLoader, output_folder: Path):
         self.output_folder = Path(output_folder)
-        self.data_csv = data_csv or (self.output_folder / "data.csv")
+        self.data_loader = data_loader
         self.results = None
 
     def analyze(self, *args, **kwargs) -> Any:
@@ -55,5 +54,17 @@ class EntropyAnalyzer(BaseAnalyzer):
     def __init__(self, parent):
         self.parent = parent
 
+
+class ClusterAnalyzer(BaseAnalyzer):
+    def __init__(self, parent):
+        self.parent = parent
+
+class ConceptAnalyzer(BaseAnalyzer):
+    def __init__(self, parent):
+        self.parent = parent
+
+class ScanpathsAnalyzer(BaseAnalyzer):
+    def __init__(self, parent):
+        self.parent = parent
 
 
