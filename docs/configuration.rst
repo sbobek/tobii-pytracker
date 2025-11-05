@@ -1,3 +1,5 @@
+
+
 Configuration
 =================
 
@@ -150,6 +152,8 @@ Each row represents a text sample, and the column containing class labels must h
 - The column defined as ``text_column_name`` will be displayed as the main text stimulus during the experiment.
 
 ---
+
+.. _display_configuration:
 
 2. ``display``
 ~~~~~~~~~~~~~~~~
