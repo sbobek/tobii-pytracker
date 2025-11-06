@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-0.1.2 (2025-11-05)
+0.1.2 (2025-11-06)
 -------------
 * Fixed documentation of command-line options
 * Added MouseEyetracker emulator, for testing without Tobii hardware
@@ -10,6 +10,7 @@ Release notes
 * Fixed issues with mouse gaze data collection (multiple gaze points when no RBS button clicked)
 * Refactored code for analyzers and data loaders.
 * Added full set of readings from eyetracker (not limited to average pupil size, or average gaze point)
+* Added HeatMapAnalyzer complete code
 
 
 0.1.1 (2025-10-28)

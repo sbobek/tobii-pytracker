@@ -222,7 +222,7 @@ class DataLoader:
         """Return list of all discovered subjects."""
         return self.subjects
     
-        # ======================================================
+    # ======================================================
     # DATA MANIPULATION
     # ======================================================
     def add_column(
@@ -258,14 +258,13 @@ class DataLoader:
         for s in target_subjects:
             data_path = self.output_root / s / "data.csv"
             if not data_path.exists():
-                LOGGER.warning(f"Skipping {s}: data.csv not found.")
+                print(f"⚠️ Skipping {s}: data.csv not found.")
                 continue
 
             df = pd.read_csv(data_path, sep=";")
 
             # Check for overwrite
             if column_name in df.columns and not overwrite:
-                LOGGER.info(f"Column '{column_name}' already exists in {s}; skipping.")
                 continue
 
             # Compute or assign column
@@ -273,22 +272,13 @@ class DataLoader:
                 try:
                     df[column_name] = func(df)
                 except Exception as e:
-                    LOGGER.error(f"Error applying func for {s}: {e}", exc_info=True)
                     continue
             else:
                 df[column_name] = value
 
             # Save or return
             if save:
-                try:
-                    df.to_csv(data_path, sep=";", index=False)
-                    LOGGER.info(f"Added column '{column_name}' to {s}/data.csv")
-                except Exception as e:
-                    LOGGER.error(f"Failed to save updated data.csv for {s}: {e}", exc_info=True)
-            else:
-                LOGGER.debug(f"Column '{column_name}' added in memory for {s} (not saved).")
-
-        LOGGER.info(f"Completed adding column '{column_name}' to selected subjects.")
+                df.to_csv(data_path, sep=";", index=False)
 
 
     # ======================================================

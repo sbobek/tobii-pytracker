@@ -2,7 +2,7 @@ import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, List
 from scipy.stats import entropy
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -10,110 +10,138 @@ from .data_loader import DataLoader
 from scipy.ndimage import gaussian_filter
 
 
+# ======================================================
+# BASE ANALYZER
+# ======================================================
 class BaseAnalyzer:
-    def __init__(self, data_loader: DataLoader, output_folder: Path):
+    """
+    Base class for all analyzers.
+
+    Each analyzer implements:
+      - analyze(data, per='slide'|'set'|'global', subset=None)
+      - plot_analysis(...)
+
+    They do not rely on DataLoader but expect clean, preformatted data:
+      columns like avg_gaze_x, avg_gaze_y, input_data, slide_index, etc.
+    """
+
+    def __init__(self, output_folder: Path):
         self.output_folder = Path(output_folder)
-        self.data_loader = data_loader
         self.results: Optional[pd.DataFrame] = None
 
     def analyze(self, *args, **kwargs) -> pd.DataFrame:
-        """Run full analysis (override in subclass). Should return a pandas DataFrame with results."""
         raise NotImplementedError
 
     def plot_analysis(self, *args, **kwargs):
-        """Plot analysis results (override in subclass)."""
         raise NotImplementedError
 
     def save_results(self, filename: Optional[str] = None):
-        """Explicitly save results to disk."""
         if self.results is None:
             return
-
         filename = filename or f"{self.__class__.__name__}_results.json"
         filepath = self.output_folder / filename
+        self.results.to_json(filepath, orient="records", indent=4, force_ascii=False)
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(self.results.to_dict(orient="records"), f, indent=4, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------
 # ------------------------- ANALYZERS --------------------------------
 # ---------------------------------------------------------------------
 
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from scipy.ndimage import gaussian_filter
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from typing import Optional
 
-class HeatmapAnalyzer(BaseAnalyzer):
+
+class HeatmapAnalyzer:
     """
-    Generates gaze heatmaps (either per-slide or aggregated across subjects)
-    and overlays them over real screenshots.
+    Generates gaze heatmaps and overlays them over screenshots.
 
-    The heatmap visualizes areas of visual attention intensity, using Gaussian-blurred
-    density maps of average gaze positions.
+    This analyzer is independent of DataLoader — it operates directly
+    on pandas DataFrames and image paths.
 
-    Modes
+    Parameters
+    ----------
+    output_folder : Path
+        Directory where results or plots can be saved.
+
+    Notes
     -----
-    • **per='slide'** — Computes heatmaps per individual slide (for a single subject).
-    • **per='global'** — Aggregates data from *all subjects* for each unique
-      `input_data` (i.e., each unique image/slide identifier), producing global
-      attention maps across viewers.
+    The DataFrame must contain:
+        - 'avg_gaze_x' : x gaze coordinate (centered)
+        - 'avg_gaze_y' : y gaze coordinate (centered)
+        - 'set_name'   : subject or participant ID
+        - 'slide_index': slide identifier (int)
+        - 'input_data' : image identifier (str)
     """
 
-    def __init__(self, data_loader, output_folder: Path):
-        super().__init__(data_loader, output_folder)
+    def __init__(self, output_folder: Path):
+        self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+        self.results: Optional[pd.DataFrame] = None
 
     # ======================================================
     # ANALYSIS
     # ======================================================
-    def analyze(self, set_name: str, per: str = "slide") -> pd.DataFrame:
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "global",
+    ) -> pd.DataFrame:
         """
-        Perform gaze heatmap analysis.
+        Perform gaze heatmap analysis by aggregating gaze data per group.
 
         Parameters
         ----------
-        set_name : str
-            Subject folder name (if per='slide') or one subject to anchor aggregation.
-        per : str
-            'slide' — compute per-slide for one subject.
-            'global' — compute aggregated heatmaps per input_data across all subjects.
+        background_data : pd.DataFrame
+            Combined gaze data from one or more subjects.
+        per : str, optional
+            Aggregation mode:
+            - 'global' → compute statistics across all data (no grouping)
+            - 'set'    → compute per subject
+            - 'slide'  → compute per subject and slide
 
         Returns
         -------
         pd.DataFrame
-            Summary statistics (mean gaze position and point counts)
-            per slide or per input_data.
+            DataFrame with mean gaze positions and counts per group.
         """
-        if per not in ["slide", "global"]:
-            raise ValueError("`per` must be either 'slide' or 'global'")
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("Parameter 'per' must be one of: ['global', 'set', 'slide'].")
 
-        if per == "slide":
-            data = self.data_loader.get_subject_data(set_name, flatten=True)
-            group_key = "slide_index"
-        else:
-            # Aggregate across all subjects by input_data
-            all_data = self.data_loader.get_all_data(flatten=True)
-            data = pd.concat(all_data.values(), ignore_index=True)
-            group_key = "input_data"
-
-        # Compute mean gaze and count per grouping
-        results = (
-            data.groupby(group_key)
-            .agg(
-                avg_gaze_x=("avg_gaze_x", "mean"),
-                avg_gaze_y=("avg_gaze_y", "mean"),
-                gaze_count=("avg_gaze_x", "count"),
+        if per == "global":
+            # Treat the entire dataset as a single group
+            results = pd.DataFrame([{
+                "avg_gaze_x": background_data["avg_gaze_x"].mean(),
+                "avg_gaze_y": background_data["avg_gaze_y"].mean(),
+                "gaze_count": background_data["avg_gaze_x"].count(),
+            }])
+        elif per == "set":
+            results = (
+                background_data.groupby("set_name")
+                .agg(
+                    avg_gaze_x=("avg_gaze_x", "mean"),
+                    avg_gaze_y=("avg_gaze_y", "mean"),
+                    gaze_count=("avg_gaze_x", "count"),
+                )
+                .reset_index()
             )
-            .reset_index()
-        )
+        else:  # per == "slide"
+            results = (
+                background_data.groupby(["set_name", "slide_index"])
+                .agg(
+                    avg_gaze_x=("avg_gaze_x", "mean"),
+                    avg_gaze_y=("avg_gaze_y", "mean"),
+                    gaze_count=("avg_gaze_x", "count"),
+                )
+                .reset_index()
+            )
 
         self.results = results
-
-        # Optionally register columns in DataLoader
-        for col in results.columns:
-            if col not in data.columns:
-                try:
-                    self.data_loader.add_column(col, value=None)
-                except Exception:
-                    pass
-
         return results
 
     # ======================================================
@@ -121,86 +149,62 @@ class HeatmapAnalyzer(BaseAnalyzer):
     # ======================================================
     def plot_analysis(
         self,
-        set_name: str,
-        slide_index: Optional[int] = None,
-        input_data: Optional[str] = None,
-        per: str = "slide",
+        background_data: pd.DataFrame,
+        screenshot_path: Path,
+        title: Optional[str] = None,
         flip_y: bool = True,
         blur_sigma: float = 3.0,
-        bins: int = 50,
+        bins: int = 100,
         cmap: str = "hot",
         alpha: float = 0.6,
-        save_path: Optional[Path] = None,
         show: bool = True,
+        save_path: Optional[Path] = None,
     ):
         """
-        Plot gaze heatmap overlayed over the actual slide screenshot.
+        Plot gaze heatmap overlayed over the given screenshot.
 
         Parameters
         ----------
-        set_name : str
-            Subject name (used to locate screenshot files).
-        slide_index : int, optional
-            Slide index (required if per='slide').
-        input_data : str, optional
-            Image identifier (required if per='global').
-        per : str
-            'slide' or 'global' (same as in analyze()).
+        background_data : pd.DataFrame
+            The gaze data to visualize (usually a subset).
+        screenshot_path : Path
+            Path to the screenshot to overlay.
+        title : str, optional
+            Custom title for the plot.
         flip_y : bool, optional
-            Whether to invert Y axis (for screen coordinates where y grows downward).
+            Whether to invert Y axis to align with screen coordinates.
         blur_sigma : float, optional
-            Standard deviation for Gaussian smoothing of heatmap.
-        bins : int
-            Resolution of the 2D histogram grid.
-        cmap : str
-            Colormap for heatmap visualization.
-        alpha : float
-            Transparency of the heatmap overlay.
+            Gaussian smoothing factor for the heatmap.
+        bins : int, optional
+            Number of bins for the 2D histogram.
+        cmap : str, optional
+            Colormap for the heatmap overlay.
+        alpha : float, optional
+            Transparency level for the heatmap overlay.
+        show : bool, optional
+            Whether to display the figure interactively.
         save_path : Path, optional
-            Path to save the visualization.
-        show : bool
-            Whether to display the visualization interactively.
+            If provided, saves the figure to this location.
         """
-        if per == "slide" and slide_index is None:
-            raise ValueError("For per='slide', you must specify slide_index.")
-        if per == "global" and input_data is None:
-            raise ValueError("For per='global', you must specify input_data.")
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
 
-        # Select data and corresponding image
-        if per == "slide":
-            slide_data = self.data_loader.get_slide_data(set_name, slide_index, flatten=True)
-            img_path = self.data_loader.root / Path(slide_data["screenshot_file"].iloc[0])
-            data = slide_data
-        else:
-            all_data = self.data_loader.get_all_data(flatten=True)
-            data = pd.concat(all_data.values(), ignore_index=True)
-            data = data[data["input_data"] == input_data]
-
-            # Use image path from any subject containing that input_data
-            ref_data = self.data_loader.get_subject_data(set_name, flatten=True)
-            ref_row = ref_data[ref_data["input_data"] == input_data].iloc[0]
-            img_path = self.data_loader.root / Path(ref_row["screenshot_file"])
-
-        if not img_path.exists():
-            raise FileNotFoundError(f"Screenshot not found: {img_path}")
-
-        # Load image
-        img = mpimg.imread(img_path)
+        # --- Load screenshot ---
+        img = mpimg.imread(screenshot_path)
         H, W = img.shape[:2]
 
         # --- Prepare gaze coordinates ---
-        avg_x = data["avg_gaze_x"].dropna().values
-        avg_y = data["avg_gaze_y"].dropna().values
-        avg_x = W / 2 + avg_x
-        avg_y = (H / 2 - avg_y) if flip_y else (H / 2 + avg_y)
+        avg_x = W / 2 + background_data["avg_gaze_x"].dropna().values
+        avg_y = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data["avg_gaze_y"].dropna().values
 
-        # --- Build heatmap ---
-        heatmap, xedges, yedges = np.histogram2d(avg_x, avg_y, bins=bins, range=[[0, W], [0, H]])
+        # --- Compute heatmap ---
+        heatmap, _, _ = np.histogram2d(avg_x, avg_y, bins=bins, range=[[0, W], [0, H]])
         heatmap = gaussian_filter(heatmap, sigma=blur_sigma)
 
-        # --- Plot overlay ---
+        # --- Plot ---
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.imshow(img, origin="upper", extent=[0, W, H, 0])  # ensures proper orientation
+        ax.imshow(img, origin="upper")
         ax.imshow(
             heatmap.T,
             cmap=cmap,
@@ -209,12 +213,7 @@ class HeatmapAnalyzer(BaseAnalyzer):
             extent=[0, W, H, 0],
         )
 
-        title = (
-            f"Aggregated Heatmap \n{input_data}"
-            if per == "global"
-            else f"Heatmap \n{set_name}, Slide {slide_index}"
-        )
-        ax.set_title(title)
+        ax.set_title(title or f"Heatmap ({len(background_data)} samples)")
         ax.axis("off")
 
         if save_path:
@@ -224,51 +223,247 @@ class HeatmapAnalyzer(BaseAnalyzer):
         else:
             plt.close(fig)
 
+class SaccadeAnalyzer(BaseAnalyzer):
+    """
+    Calculates saccade metrics (dx, dy, dt, amplitude, velocity) from gaze data.
+
+    Usage:
+        analyzer = SaccadeAnalyzer(output_folder=Path("./out"))
+        events = analyzer.analyze(background_data, per="slide")
+        analyzer.plot_analysis(events, kind="time", set_name="subject01", slide_index=2)
+    """
+
+    def analyze(
+        self,
+        data: pd.DataFrame,
+        per: str = "slide",
+        subset: Optional[List[str]] = None,
+    ) -> pd.DataFrame:
+        """
+        Compute saccade events and metrics.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Flattened gaze data with columns 'avg_gaze_x', 'avg_gaze_y', 'system_time',
+            'set_name' and 'slide_index'.
+        per : str, optional
+            'slide'  -> compute saccades per (set_name, slide_index)
+            'set'    -> compute saccades per set_name
+            'global' -> compute saccades across all (no grouping)
+        subset : list[str], optional
+            If provided, restrict processing to these set_name values.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame of saccade events with columns:
+            ['set_name','slide_index','system_time_prev','system_time',
+             'x_prev','y_prev','x','y','dx','dy','dt','amplitude','velocity'].
+        """
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("`per` must be one of ['global','set','slide'].")
+
+        df = data.copy()
+
+        if subset is not None:
+            df = df[df["set_name"].isin(subset)]
+
+        # choose grouping keys for iteration (not aggregation)
+        if per == "global":
+            group_keys = []
+        elif per == "set":
+            group_keys = ["set_name"]
+        else:  # slide
+            group_keys = ["set_name", "slide_index"]
+
+        events_list = []
+
+        # If no grouping, treat whole df as single group
+        if not group_keys:
+            groups = [("", df.sort_values("system_time"))]
+        else:
+            groups = list(df.groupby(group_keys))
+
+        for grp_key, group in groups:
+            g = group.sort_values("system_time").reset_index(drop=True)
+
+            # compute previous sample values by shifting
+            g["x_prev"] = g["avg_gaze_x"].shift(1)
+            g["y_prev"] = g["avg_gaze_y"].shift(1)
+            g["t_prev"] = g["system_time"].shift(1)
+
+            # drop first row (no previous)
+            ev = g.dropna(subset=["x_prev", "y_prev", "t_prev"]).copy()
+            if ev.empty:
+                continue
+
+            ev["dx"] = ev["avg_gaze_x"] - ev["x_prev"]
+            ev["dy"] = ev["avg_gaze_y"] - ev["y_prev"]
+            ev["dt"] = ev["system_time"] - ev["t_prev"]
+            # avoid division by zero
+            ev["dt"] = ev["dt"].replace(0, np.nan)
+
+            ev["amplitude"] = np.sqrt(ev["dx"] ** 2 + ev["dy"] ** 2)
+            ev["velocity"] = ev["amplitude"] / ev["dt"]
+
+            # keep identifiers (if grouped, grp_key may be tuple)
+            if group_keys:
+                if isinstance(grp_key, tuple):
+                    for k, v in zip(group_keys, grp_key):
+                        ev[k] = v
+                else:
+                    ev[group_keys[0]] = grp_key
+            else:
+                # for global, if original df has set_name/slide_index keep them per-row
+                pass
+
+            events_list.append(ev[[
+                *(group_keys if group_keys else []),
+                "system_time", "t_prev", "x_prev", "y_prev", "avg_gaze_x", "avg_gaze_y",
+                "dx", "dy", "dt", "amplitude", "velocity"
+            ]])
+
+        if events_list:
+            events_df = pd.concat(events_list, ignore_index=True)
+        else:
+            events_df = pd.DataFrame(
+                columns=[
+                    *(group_keys if group_keys else []),
+                    "system_time", "t_prev", "x_prev", "y_prev", "avg_gaze_x", "avg_gaze_y",
+                    "dx", "dy", "dt", "amplitude", "velocity"
+                ]
+            )
+
+        # store results (saccade events)
+        self.results = events_df
+        return events_df
+
+    def plot_analysis(
+        self,
+        events: Optional[pd.DataFrame] = None,
+        kind: str = "time",
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        metric: str = "velocity",
+        bins: int = 40,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Plot saccade analysis results.
+
+        Parameters
+        ----------
+        events : pd.DataFrame, optional
+            DataFrame returned by analyze(). If None, uses self.results.
+        kind : str, optional
+            'time' -> plot metric (velocity/amplitude) over time (system_time)
+            'hist' -> histogram of metric
+        set_name : str, optional
+            Filter to a particular subject (if present in events)
+        slide_index : int, optional
+            Filter to a particular slide (if present)
+        metric : str, optional
+            Which metric to plot: 'velocity' or 'amplitude' (or any numeric column)
+        bins : int, optional
+            For histogram.
+        show : bool, optional
+        save_path : Path, optional
+        """
+        if events is None:
+            events = self.results
+        if events is None or events.empty:
+            raise ValueError("No saccade events to plot. Run analyze() first or provide events.")
+
+        df = events.copy()
+        if set_name is not None and "set_name" in df.columns:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None and "slide_index" in df.columns:
+            df = df[df["slide_index"] == slide_index]
+
+        if df.empty:
+            raise ValueError("Filtered events are empty; nothing to plot.")
+
+        if kind == "time":
+            if "system_time" not in df.columns or metric not in df.columns:
+                raise ValueError("Required columns missing for time plot.")
+            plt.figure(figsize=(10, 4))
+            plt.plot(df["system_time"], df[metric], marker="o", linestyle="-", alpha=0.7)
+            plt.xlabel("System time")
+            plt.ylabel(metric.capitalize())
+            plt.title(f"Saccade {metric} over time" + (f" — {set_name}" if set_name else ""))
+            plt.grid(True)
+        elif kind == "hist":
+            if metric not in df.columns:
+                raise ValueError(f"Metric '{metric}' not present in events.")
+            plt.figure(figsize=(8, 4))
+            plt.hist(df[metric].dropna(), bins=bins, edgecolor="black", alpha=0.7)
+            plt.xlabel(metric.capitalize())
+            plt.title(f"Histogram of saccade {metric}")
+        else:
+            raise ValueError("kind must be 'time' or 'hist'.")
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
 
-class FocusMapAnalyzer(HeatmapAnalyzer):
-    """Highlights areas of high attention."""
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
-        data["attention_weight"] = data["avg_pupil_size"] / data["avg_pupil_size"].max()
-        results = (
-            data.groupby("slide_index")["attention_weight"]
-            .mean()
-            .reset_index()
-            .rename(columns={"attention_weight": "focus_intensity"})
+# ======================================================
+# FOCUS MAP ANALYZER
+# ======================================================
+class FocusMapAnalyzer(BaseAnalyzer):
+    """Highlights regions with high attention weight (based on pupil size)."""
+
+    def analyze(self, data: pd.DataFrame, per: str = "slide") -> pd.DataFrame:
+        df = data.copy()
+        df["attention_weight"] = df["avg_pupil_size"] / df["avg_pupil_size"].max()
+        group_key = (
+            "set_name" if per == "set" else ["set_name", "slide_index"] if per == "slide" else None
         )
+
+        if group_key:
+            results = (
+                df.groupby(group_key)["attention_weight"]
+                .mean()
+                .reset_index()
+                .rename(columns={"attention_weight": "focus_intensity"})
+            )
+        else:
+            results = pd.DataFrame({"focus_intensity": [df["attention_weight"].mean()]})
+
         self.results = results
-        self.data_loader.add_column("focus_intensity", results["focus_intensity"])
         return results
 
-    def plot_analysis(self, set_name: str, slide_index: int, cmap: str = "plasma"):
-        slide_data = self.data_loader.get_slide_data(set_name, slide_index, flatten=True)
-        screenshot_path = Path(slide_data["screenshot_file"].iloc[0])
-        img = mpimg.imread(self.data_loader.root / screenshot_path)
+    def plot_analysis(self, data: pd.DataFrame, img_path: Path, cmap="plasma"):
+        img = mpimg.imread(img_path)
         H, W = img.shape[:2]
-
         plt.figure(figsize=(10, 6))
         plt.imshow(img)
         plt.scatter(
-            W / 2 + slide_data["avg_gaze_x"],
-            H / 2 - slide_data["avg_gaze_y"],
-            s=80 * slide_data["avg_pupil_size"].fillna(1),
-            c=slide_data["avg_pupil_size"],
+            W / 2 + data["avg_gaze_x"],
+            H / 2 - data["avg_gaze_y"],
+            s=80 * data["avg_pupil_size"].fillna(1),
+            c=data["avg_pupil_size"],
             cmap=cmap,
             alpha=0.6,
         )
-        plt.title(f"Focus Map — {set_name}, Slide {slide_index}")
+        plt.title("Focus Map")
         plt.axis("off")
         plt.show()
 
 
+# ======================================================
+# FIXATION ANALYZER
+# ======================================================
 class FixationAnalyzer(BaseAnalyzer):
-    """Calculates fixation metrics: duration, count, dispersion."""
+    """Computes fixation duration, count, and dispersion."""
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
-
+    def analyze(self, data: pd.DataFrame) -> pd.DataFrame:
         results = (
             data.groupby("event_id")
             .agg(
@@ -281,191 +476,120 @@ class FixationAnalyzer(BaseAnalyzer):
             )
             .reset_index()
         )
-
         self.results = results
-        for col in ["start_time", "end_time", "duration", "dispersion"]:
-            self.data_loader.add_column(col, results[col])
         return results
 
-    def plot_analysis(self, set_name: str, slide_index: int):
-        slide_data = self.data_loader.get_slide_data(set_name, slide_index, flatten=True)
-        screenshot_path = Path(slide_data["screenshot_file"].iloc[0])
-        img = mpimg.imread(self.data_loader.root / screenshot_path)
+    def plot_analysis(self, data: pd.DataFrame, img_path: Path):
+        img = mpimg.imread(img_path)
         H, W = img.shape[:2]
-
         plt.figure(figsize=(10, 6))
         plt.imshow(img)
-        plt.scatter(
-            W / 2 + slide_data["avg_gaze_x"],
-            H / 2 - slide_data["avg_gaze_y"],
-            s=slide_data["avg_pupil_size"] * 50,
-            c="red",
-            alpha=0.6,
-        )
-        plt.title(f"Fixations — {set_name}, Slide {slide_index}")
+        plt.scatter(W / 2 + data["avg_gaze_x"], H / 2 - data["avg_gaze_y"], s=30, c="red", alpha=0.6)
+        plt.title("Fixations")
         plt.axis("off")
         plt.show()
 
 
-class SaccadeAnalyzer(BaseAnalyzer):
-    """Calculates saccade metrics: amplitude, velocity."""
+# ======================================================
+# CLUSTER ANALYZER
+# ======================================================
+class ClusterAnalyzer(BaseAnalyzer):
+    """Performs clustering on gaze coordinates."""
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True).sort_values("system_time")
-        data["dx"] = data["avg_gaze_x"].diff()
-        data["dy"] = data["avg_gaze_y"].diff()
-        data["dt"] = data["system_time"].diff().replace(0, np.nan)
-        data["amplitude"] = np.sqrt(data["dx"] ** 2 + data["dy"] ** 2)
-        data["velocity"] = data["amplitude"] / data["dt"]
+    def analyze(self, data: pd.DataFrame, clustering_model=None, eps=0.05, min_samples=5) -> pd.DataFrame:
+        X = data[["avg_gaze_x", "avg_gaze_y"]].dropna().to_numpy()
+        model = clustering_model or DBSCAN(eps=eps, min_samples=min_samples)
+        labels = model.fit_predict(X)
+        valid_idx = data[["avg_gaze_x", "avg_gaze_y"]].dropna().index
+        data.loc[valid_idx, "cluster_label"] = labels
+        self.results = data[["system_time", "cluster_label"]]
+        return self.results
 
-        results = data[["system_time", "amplitude", "velocity"]].dropna().reset_index(drop=True)
-        self.results = results
-        self.data_loader.add_column("amplitude", results["amplitude"])
-        self.data_loader.add_column("velocity", results["velocity"])
-        return results
-
-    def plot_analysis(self, set_name: str, slide_index: int):
-        if self.results is None:
-            raise ValueError("Run analyze() before plotting.")
-        plt.figure(figsize=(10, 4))
-        plt.plot(self.results["system_time"], self.results["velocity"])
-        plt.title(f"Saccade Velocity over Time — {set_name}, Slide {slide_index}")
-        plt.xlabel("Time")
-        plt.ylabel("Velocity")
+    def plot_analysis(self, data: pd.DataFrame, color_map="tab10"):
+        df = data.dropna(subset=["avg_gaze_x", "avg_gaze_y", "cluster_label"])
+        labels = sorted(set(df["cluster_label"]))
+        cmap = cm.get_cmap(color_map, len(labels))
+        plt.figure(figsize=(8, 6))
+        for i, label in enumerate(labels):
+            cluster = df[df["cluster_label"] == label]
+            plt.scatter(cluster["avg_gaze_x"], cluster["avg_gaze_y"], color=cmap(i), s=20, alpha=0.7)
+        plt.title("Clusters")
+        plt.xlabel("X")
+        plt.ylabel("Y")
         plt.show()
 
 
+# ======================================================
+# ENTROPY ANALYZER
+# ======================================================
 class EntropyAnalyzer(BaseAnalyzer):
-    """Calculates entropy of gaze distributions."""
+    """Computes entropy of gaze distributions."""
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
+    def analyze(self, data: pd.DataFrame) -> pd.DataFrame:
         hist, _, _ = np.histogram2d(data["avg_gaze_x"], data["avg_gaze_y"], bins=20)
         p = hist.flatten() / hist.sum()
         ent = entropy(p[p > 0])
         results = pd.DataFrame({"entropy": [ent]})
         self.results = results
-        self.data_loader.add_column("entropy", results["entropy"])
         return results
 
-    def plot_analysis(self, set_name: str, slide_index: int):
+    def plot_analysis(self):
         plt.bar(["Entropy"], [self.results["entropy"].iloc[0]], color="orange")
-        plt.title(f"Gaze Entropy — {set_name}, Slide {slide_index}")
+        plt.title("Gaze Entropy")
         plt.ylabel("Entropy")
         plt.show()
 
-class ClusterAnalyzer(BaseAnalyzer):
-    """Cluster Analyzer
-    Identifies gaze clusters using DBSCAN or a user-provided clustering model.
+
+class ConceptAnalyzer(BaseAnalyzer):
+    """
+    Defines AOI-like (Areas of Interest) concepts from clusters
+    and computes engagement statistics per concept.
+
+    This class operates directly on flattened background data.
 
     Parameters
     ----------
-    clustering_model : object, optional
-        Any initialized clustering model implementing `fit_predict(X)` method.
-        If None, defaults to DBSCAN with provided `eps` and `min_samples`.
-
-    Example
-    -------
-    ```python
-    from sklearn.cluster import DBSCAN, AgglomerativeClustering
-
-    analyzer = ClusterAnalyzer(data_loader=loader, output_folder=Path("./out"))
-
-    # Default DBSCAN
-    results = analyzer.analyze(set_name="subject_01")
-
-    # Custom clustering algorithm
-    custom_model = AgglomerativeClustering(n_clusters=4)
-    results = analyzer.analyze(set_name="subject_01", clustering_model=custom_model)
-    ```
+    background_data : pd.DataFrame
+        Combined dataset across subjects, slides, and events.
     """
 
-    def analyze(
-        self,
-        set_name: str,
-        clustering_model=None,
-        eps: float = 0.05,
-        min_samples: int = 5,
-    ) -> pd.DataFrame:
-        # --- Load and prepare gaze data ---
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
-        if "avg_gaze_x" not in data or "avg_gaze_y" not in data:
-            raise ValueError("Input data must contain 'avg_gaze_x' and 'avg_gaze_y' columns.")
+    def __init__(self, background_data: pd.DataFrame):
+        super().__init__(background_data)
 
-        X = data[["avg_gaze_x", "avg_gaze_y"]].dropna().to_numpy()
+    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
+        """
+        Identify and analyze concepts based on cluster labels.
 
-        # --- Choose clustering model ---
-        model = clustering_model or DBSCAN(eps=eps, min_samples=min_samples)
+        Parameters
+        ----------
+        mode : str, optional
+            'slide' — compute per-slide per-subject
+            'set' — compute per-subject across slides
+            'global' — aggregate across all data
+        subset : list[str], optional
+            Optional list of subject identifiers to include in analysis.
 
-        # --- Fit model and assign cluster labels ---
-        labels = model.fit_predict(X)
-        valid_idx = data[["avg_gaze_x", "avg_gaze_y"]].dropna().index
-        data.loc[valid_idx, "cluster_label"] = labels
+        Returns
+        -------
+        pd.DataFrame
+            Concept engagement statistics.
+        """
+        data = self.background_data.copy()
 
-        # --- Prepare and save results ---
-        results = data[["system_time", "cluster_label"]].copy()
-        self.results = results
+        if subset is not None:
+            data = data[data["set_name"].isin(subset)]
 
-        # Add results back to DataLoader
-        self.data_loader.add_column("cluster_label", data["cluster_label"])
-
-        return results
-
-    def plot_analysis(
-        self,
-        set_name: str,
-        color_map: str = "tab10",
-        show: bool = True,
-        save_path: Optional[Path] = None,
-    ):
-        """Visualize cluster assignments on gaze data."""
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
-        if "cluster_label" not in data:
-            raise ValueError("No cluster_label column found. Run analyze() first.")
-
-        df = data.dropna(subset=["avg_gaze_x", "avg_gaze_y", "cluster_label"])
-        labels = df["cluster_label"].to_numpy()
-        unique_labels = sorted(set(labels))
-
-        cmap = cm.get_cmap(color_map, len(unique_labels))
-        fig, ax = plt.subplots(figsize=(8, 6))
-
-        for i, label in enumerate(unique_labels):
-            cluster_points = df[df["cluster_label"] == label]
-            ax.scatter(
-                cluster_points["avg_gaze_x"],
-                cluster_points["avg_gaze_y"],
-                s=30,
-                alpha=0.7,
-                color=cmap(i),
-                label=f"Cluster {label}" if label != -1 else "Noise",
-                edgecolors="none"
-            )
-
-        ax.set_title(f"Cluster Visualization: {set_name}")
-        ax.set_xlabel("avg_gaze_x")
-        ax.set_ylabel("avg_gaze_y")
-        ax.legend(loc="best")
-        plt.tight_layout()
-
-        if save_path:
-            plt.savefig(save_path, dpi=200)
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
-
-
-class ConceptAnalyzer(BaseAnalyzer):
-    """Defines AOI-like concepts from clusters."""
-
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
         if "cluster_label" not in data.columns:
             raise ValueError("Cluster labels required. Run ClusterAnalyzer first.")
 
+        group_keys = {
+            "slide": ["set_name", "slide_index", "cluster_label"],
+            "set": ["set_name", "cluster_label"],
+            "global": ["cluster_label"],
+        }[mode]
+
         concept_stats = (
-            data.groupby("cluster_label")
+            data.groupby(group_keys)
             .agg(
                 mean_duration=("system_time", lambda x: x.max() - x.min()),
                 fixation_count=("event_id", "nunique"),
@@ -473,59 +597,170 @@ class ConceptAnalyzer(BaseAnalyzer):
             .reset_index()
             .rename(columns={"cluster_label": "concept_id"})
         )
+
         self.results = concept_stats
-        self.data_loader.add_column("concept_id", concept_stats["concept_id"])
         return concept_stats
 
-    def plot_analysis(self, set_name: str, slide_index: int):
-        plt.bar(self.results["concept_id"], self.results["mean_duration"], color="teal")
-        plt.title(f"Concept Engagement — {set_name}, Slide {slide_index}")
+    def plot_analysis(self, set_name: str = None, slide_index: int = None):
+        """
+        Visualize mean engagement duration per concept.
+
+        Parameters
+        ----------
+        set_name : str, optional
+            Subject name for filtering (used if mode='set' or 'slide').
+        slide_index : int, optional
+            Slide index (used if mode='slide').
+        """
+        if self.results is None or self.results.empty:
+            raise ValueError("Run analyze() before plotting.")
+
+        df = self.results.copy()
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None and "slide_index" in df.columns:
+            df = df[df["slide_index"] == slide_index]
+
+        plt.figure(figsize=(8, 4))
+        plt.bar(df["concept_id"], df["mean_duration"], color="teal")
+        plt.title(f"Concept Engagement — {set_name or 'Global'}")
         plt.xlabel("Concept ID")
         plt.ylabel("Mean Duration")
         plt.show()
 
 
 class ScanpathsAnalyzer(BaseAnalyzer):
-    """Analyzes sequential transitions between fixations."""
+    """
+    Analyzes sequential transitions between fixations
+    to characterize scanpaths per slide, set, or globally.
+    """
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True).sort_values("system_time")
-        data["next_event"] = data["event_id"].shift(-1)
-        transitions = data.groupby(["event_id", "next_event"]).size().reset_index(name="count")
+    def __init__(self, background_data: pd.DataFrame):
+        super().__init__(background_data)
 
+    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
+        """
+        Compute fixation-to-fixation transitions (scanpaths).
+
+        Parameters
+        ----------
+        mode : str, optional
+            'slide' — per slide per subject
+            'set' — per subject across slides
+            'global' — across all subjects
+        subset : list[str], optional
+            Restrict analysis to specific subjects.
+
+        Returns
+        -------
+        pd.DataFrame
+            Transition counts.
+        """
+        data = self.background_data.copy()
+        if subset is not None:
+            data = data[data["set_name"].isin(subset)]
+
+        group_keys = {
+            "slide": ["set_name", "slide_index"],
+            "set": ["set_name"],
+            "global": [],
+        }[mode]
+
+        results = []
+        for _, group in data.groupby(group_keys or [lambda _: True]):
+            group = group.sort_values("system_time")
+            group["next_event"] = group["event_id"].shift(-1)
+            trans = (
+                group.groupby(["event_id", "next_event"])
+                .size()
+                .reset_index(name="count")
+            )
+            for key, val in zip(group_keys, group[group_keys].iloc[0].values) if group_keys else []:
+                trans[key] = val
+            results.append(trans)
+
+        transitions = pd.concat(results, ignore_index=True)
         self.results = transitions
-        self.data_loader.add_column("scanpath_transition_count", transitions["count"])
         return transitions
 
-    def plot_analysis(self, set_name: str, slide_index: int):
-        if self.results is None:
+    def plot_analysis(self, set_name: str = None, slide_index: int = None):
+        """
+        Plot transition frequencies for scanpaths.
+
+        Parameters
+        ----------
+        set_name : str, optional
+        slide_index : int, optional
+        """
+        if self.results is None or self.results.empty:
             raise ValueError("Run analyze() before plotting.")
+
+        df = self.results.copy()
+        if set_name is not None and "set_name" in df.columns:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None and "slide_index" in df.columns:
+            df = df[df["slide_index"] == slide_index]
+
         plt.figure(figsize=(8, 5))
-        plt.bar(range(len(self.results)), self.results["count"])
-        plt.title(f"Scanpath Transition Counts — {set_name}, Slide {slide_index}")
+        plt.bar(range(len(df)), df["count"])
+        plt.title(f"Scanpath Transitions — {set_name or 'Global'}")
         plt.xlabel("Transition Index")
         plt.ylabel("Count")
         plt.show()
 
 
 class VoiceTranscription(BaseAnalyzer):
-    """Transcribes and aligns voice data with gaze events."""
+    """
+    Transcribes and aligns voice data with gaze events.
 
-    def analyze(self, set_name: str) -> pd.DataFrame:
-        data = self.data_loader.get_subject_data(set_name, flatten=True)
-        transcripts = pd.DataFrame({
-            "system_time": data["system_time"],
-            "transcribed_text": ["dummy transcription"] * len(data)
-        })
+    This is a placeholder implementation — replace transcription
+    logic with a real speech-to-text model as needed.
+    """
+
+    def __init__(self, background_data: pd.DataFrame):
+        super().__init__(background_data)
+
+    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
+        """
+        Generate aligned voice transcripts.
+
+        Parameters
+        ----------
+        mode : str, optional
+            'slide' — per slide
+            'set' — per subject
+            'global' — aggregated across all
+        subset : list[str], optional
+            Optional subset of subjects.
+        """
+        data = self.background_data.copy()
+        if subset is not None:
+            data = data[data["set_name"].isin(subset)]
+
+        transcripts = data[["set_name", "slide_index", "system_time"]].copy()
+        transcripts["transcribed_text"] = [
+            "dummy transcription" for _ in range(len(transcripts))
+        ]
+
         self.results = transcripts
-        self.data_loader.add_column("transcribed_text", transcripts["transcribed_text"])
         return transcripts
 
-    def plot_analysis(self, set_name: str, slide_index: int):
-        if self.results is None:
+    def plot_analysis(self, set_name: str = None, slide_index: int = None):
+        """
+        Show a sample of transcribed text.
+        """
+        if self.results is None or self.results.empty:
             raise ValueError("Run analyze() before plotting.")
+
+        df = self.results.copy()
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None and "slide_index" in df.columns:
+            df = df[df["slide_index"] == slide_index]
+
+        sample_text = "\n".join(df["transcribed_text"].head(5))
         plt.figure(figsize=(8, 4))
-        plt.text(0.1, 0.5, "\n".join(self.results["transcribed_text"].head(5)), fontsize=12)
+        plt.text(0.05, 0.5, sample_text, fontsize=12)
         plt.axis("off")
-        plt.title(f"Voice Transcription (sample) — {set_name}, Slide {slide_index}")
+        plt.title(f"Voice Transcription Sample — {set_name or 'Global'}")
         plt.show()
