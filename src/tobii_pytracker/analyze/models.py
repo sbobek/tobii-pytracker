@@ -223,6 +223,165 @@ class HeatmapAnalyzer:
         else:
             plt.close(fig)
 
+
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from typing import Optional
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from scipy.ndimage import gaussian_filter
+
+
+class FocusMapAnalyzer:
+    """
+    Focus Map Analyzer — shows areas NOT looked at (inverted heatmap).
+
+    API mirrors HeatmapAnalyzer:
+      - analyze(background_data: pd.DataFrame, per: str = "global") -> pd.DataFrame
+      - plot_analysis(background_data: pd.DataFrame, screenshot_path: Path, title: Optional[str]=None, ...)
+        <- signature matches HeatmapAnalyzer.plot_analysis exactly.
+
+    Required columns in background_data:
+      - 'avg_gaze_x', 'avg_gaze_y' (centered coords)
+      - 'set_name', 'slide_index', 'input_data' depending on per mode
+    """
+
+    def __init__(self, output_folder: Path):
+        self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+        self.results: Optional[pd.DataFrame] = None
+
+    # ======================================================
+    # ANALYSIS
+    # ======================================================
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "global",
+    ) -> pd.DataFrame:
+        """
+        Compute summary stats similarly to HeatmapAnalyzer but for API consistency.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Flattened gaze data.
+        per : str
+            'global' | 'set' | 'slide' (same semantics as HeatmapAnalyzer)
+
+        Returns
+        -------
+        pd.DataFrame
+            Summary with columns ['avg_gaze_x','avg_gaze_y','gaze_count'] and grouping keys when appropriate.
+        """
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("Parameter 'per' must be one of: ['global','set','slide'].")
+
+        if per == "global":
+            results = pd.DataFrame([{
+                "avg_gaze_x": background_data["avg_gaze_x"].mean(),
+                "avg_gaze_y": background_data["avg_gaze_y"].mean(),
+                "gaze_count": background_data["avg_gaze_x"].count(),
+            }])
+        elif per == "set":
+            results = (
+                background_data.groupby("set_name")
+                .agg(
+                    avg_gaze_x=("avg_gaze_x", "mean"),
+                    avg_gaze_y=("avg_gaze_y", "mean"),
+                    gaze_count=("avg_gaze_x", "count"),
+                )
+                .reset_index()
+            )
+        else:  # per == "slide"
+            results = (
+                background_data.groupby(["set_name", "slide_index"])
+                .agg(
+                    avg_gaze_x=("avg_gaze_x", "mean"),
+                    avg_gaze_y=("avg_gaze_y", "mean"),
+                    gaze_count=("avg_gaze_x", "count"),
+                )
+                .reset_index()
+            )
+
+        self.results = results
+        return results
+
+    # ======================================================
+    # VISUALIZATION (signature matches HeatmapAnalyzer.plot_analysis)
+    # ======================================================
+    def plot_analysis(
+        self,
+        background_data: pd.DataFrame,
+        screenshot_path: Path,
+        title: Optional[str] = None,
+        flip_y: bool = True,
+        blur_sigma: float = 3.0,
+        bins: int = 100,
+        cmap: str = "hot",
+        alpha: float = 0.6,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Plot focus map (inverted heatmap) overlayed over the screenshot.
+        Only the "hot" parts (unseen areas) are visible — transparent elsewhere.
+        Signature matches HeatmapAnalyzer.plot_analysis.
+        """
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        df = background_data.copy()
+        if df.empty:
+            raise ValueError("background_data is empty — nothing to visualize.")
+
+        # --- Load image ---
+        img = mpimg.imread(screenshot_path)
+        H, W = img.shape[:2]
+
+        # --- Convert gaze coordinates ---
+        xs = W / 2 + df["avg_gaze_x"].dropna().values
+        ys = df["avg_gaze_y"].dropna().values
+        ys = (H / 2 - ys) if flip_y else (H / 2 + ys)
+
+        # --- Compute gaze density ---
+        heatmap, xedges, yedges = np.histogram2d(xs, ys, bins=bins, range=[[0, W], [0, H]])
+        heatmap = gaussian_filter(heatmap, sigma=blur_sigma)
+
+        # --- Normalize and invert to get focus mask (1 = unseen, 0 = looked) ---
+        max_val = heatmap.max() if heatmap.size and heatmap.max() > 0 else 1.0
+        norm = heatmap / max_val
+        focus_mask = 1.0 - norm
+
+        # --- Build transparent colormap ---
+        cmap_obj = plt.get_cmap(cmap)
+        rgba = cmap_obj(focus_mask.T)  # shape (bins,bins,4)
+        rgba[..., -1] = focus_mask.T * alpha  # scale transparency by intensity
+
+        # --- Plot ---
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.imshow(img, origin="upper")
+        ax.imshow(
+            rgba,
+            origin="upper",
+            extent=[0, W, H, 0],
+            interpolation="bilinear",
+        )
+        ax.set_title(title or f"Focus Map (transparent hot overlay) — {len(df)} samples")
+        ax.axis("off")
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
+
+
 class SaccadeAnalyzer(BaseAnalyzer):
     """
     Calculates saccade metrics (dx, dy, dt, amplitude, velocity) from gaze data.
@@ -410,51 +569,6 @@ class SaccadeAnalyzer(BaseAnalyzer):
             plt.show()
         else:
             plt.close()
-
-
-
-# ======================================================
-# FOCUS MAP ANALYZER
-# ======================================================
-class FocusMapAnalyzer(BaseAnalyzer):
-    """Highlights regions with high attention weight (based on pupil size)."""
-
-    def analyze(self, data: pd.DataFrame, per: str = "slide") -> pd.DataFrame:
-        df = data.copy()
-        df["attention_weight"] = df["avg_pupil_size"] / df["avg_pupil_size"].max()
-        group_key = (
-            "set_name" if per == "set" else ["set_name", "slide_index"] if per == "slide" else None
-        )
-
-        if group_key:
-            results = (
-                df.groupby(group_key)["attention_weight"]
-                .mean()
-                .reset_index()
-                .rename(columns={"attention_weight": "focus_intensity"})
-            )
-        else:
-            results = pd.DataFrame({"focus_intensity": [df["attention_weight"].mean()]})
-
-        self.results = results
-        return results
-
-    def plot_analysis(self, data: pd.DataFrame, img_path: Path, cmap="plasma"):
-        img = mpimg.imread(img_path)
-        H, W = img.shape[:2]
-        plt.figure(figsize=(10, 6))
-        plt.imshow(img)
-        plt.scatter(
-            W / 2 + data["avg_gaze_x"],
-            H / 2 - data["avg_gaze_y"],
-            s=80 * data["avg_pupil_size"].fillna(1),
-            c=data["avg_pupil_size"],
-            cmap=cmap,
-            alpha=0.6,
-        )
-        plt.title("Focus Map")
-        plt.axis("off")
-        plt.show()
 
 
 # ======================================================
