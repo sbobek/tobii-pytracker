@@ -7,6 +7,9 @@ import matplotlib.image as mpimg
 from dataclasses import dataclass
 from tobii_pytracker.configs.custom_config import CustomConfig
 import json
+from tobii_pytracker.utils.custom_logger import CustomLogger
+
+LOGGER = CustomLogger("INFO", __name__).logger
 
 @dataclass
 class GazePoint:
@@ -218,6 +221,75 @@ class DataLoader:
     def get_subjects(self) -> List[str]:
         """Return list of all discovered subjects."""
         return self.subjects
+    
+        # ======================================================
+    # DATA MANIPULATION
+    # ======================================================
+    def add_column(
+        self,
+        column_name: str,
+        value: Any = None,
+        func: Optional[callable] = None,
+        subjects: Optional[List[str]] = None,
+        overwrite: bool = False,
+        save: bool = True,
+    ):
+        """
+        Add a new column to one or more subjects' data.csv files.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the new column to add.
+        value : Any, optional
+            Constant value to assign to all rows (ignored if func is provided).
+        func : callable, optional
+            A function that takes a DataFrame and returns a Series or list
+            of values to populate the new column (e.g. lambda df: df['x'] + df['y']).
+        subjects : list of str, optional
+            List of subject names to modify. If None, applies to all subjects.
+        overwrite : bool, optional
+            If False (default), raises an error if the column already exists.
+        save : bool, optional
+            If True, overwrites the modified data.csv on disk.
+        """
+        target_subjects = subjects if subjects else self.subjects
+
+        for s in target_subjects:
+            data_path = self.output_root / s / "data.csv"
+            if not data_path.exists():
+                LOGGER.warning(f"Skipping {s}: data.csv not found.")
+                continue
+
+            df = pd.read_csv(data_path, sep=";")
+
+            # Check for overwrite
+            if column_name in df.columns and not overwrite:
+                LOGGER.info(f"Column '{column_name}' already exists in {s}; skipping.")
+                continue
+
+            # Compute or assign column
+            if func is not None:
+                try:
+                    df[column_name] = func(df)
+                except Exception as e:
+                    LOGGER.error(f"Error applying func for {s}: {e}", exc_info=True)
+                    continue
+            else:
+                df[column_name] = value
+
+            # Save or return
+            if save:
+                try:
+                    df.to_csv(data_path, sep=";", index=False)
+                    LOGGER.info(f"Added column '{column_name}' to {s}/data.csv")
+                except Exception as e:
+                    LOGGER.error(f"Failed to save updated data.csv for {s}: {e}", exc_info=True)
+            else:
+                LOGGER.debug(f"Column '{column_name}' added in memory for {s} (not saved).")
+
+        LOGGER.info(f"Completed adding column '{column_name}' to selected subjects.")
+
 
     # ======================================================
     # PLOTTING

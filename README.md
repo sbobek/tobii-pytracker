@@ -94,7 +94,7 @@ Different datasets can be specified in the config file that will be processed an
 
 ## Custom Model
 
-The `CustomModel` class (located in `models/custom_model.py`) serves as an abstract base class. It defines the essential methods that any custom model implementation must provide. By inheriting from `CustomModel` and implementing these methods, your custom model can seamlessly interact with the rest of the toolkit:
+The `CustomModel` class (located in `runtime_models/custom_model.py`) serves as an abstract base class. It defines the essential methods that any custom model implementation must provide. By inheriting from `CustomModel` and implementing these methods, your custom model can seamlessly interact with the rest of the toolkit:
 
 - `prepare_model(self)`: Load and prepare model for prediction
 - `predict(self, input_data)`: Run prediction with the loaded model
@@ -103,11 +103,11 @@ The `CustomModel` class (located in `models/custom_model.py`) serves as an abstr
 ### Creating Your Own Model Modules
 To create your own model module:
 
-1. Create a new Python file within the specified directory (e.g., `models/my_custom_model.py`).
+1. Create a new Python file within the specified directory (e.g., `runtime_models/my_custom_model.py`).
 
 2. Import the CustomModel class:
 ```python
-from models.custom_model import CustomModel
+from runtime_models.custom_model import CustomModel
 ```
 
 3. Define a new class that inherits from `CustomModel`:

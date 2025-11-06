@@ -34,7 +34,7 @@ output:
   folder: output
 
 model:
-  folder: models
+  folder: runtime_models
   module: custom_yolo_model
   class: CustomYoloModel
 

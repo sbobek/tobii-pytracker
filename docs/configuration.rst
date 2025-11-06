@@ -265,7 +265,7 @@ Specifies the model used in the experiment, including its location and class def
 .. code-block:: yaml
 
     model:
-      folder: models
+      folder: runtime_models
       module: custom_yolo_model
       class: CustomYoloModel
 
@@ -286,7 +286,7 @@ When using a **custom model**, ensure that its class labels **exactly match** th
 Custom Model
 ~~~~~~~~~~~~~~~~
 
-The ``CustomModel`` class (located in ``models/custom_model.py``) serves as an **abstract base class** that defines the required interface for all custom models.  
+The ``CustomModel`` class (located in ``runtime_models/custom_model.py``) serves as an **abstract base class** that defines the required interface for all custom models.  
 By inheriting from ``CustomModel`` and implementing its methods, your model can seamlessly integrate with the Tobii-Pytracker pipeline.
 
 **Required Methods:**
@@ -304,12 +304,12 @@ By inheriting from ``CustomModel`` and implementing its methods, your model can 
 
 To create your own model:
 
-1. Create a new Python file within the ``models/`` directory (e.g., ``models/my_custom_model.py``).  
+1. Create a new Python file within the ``runtime_models/`` directory (e.g., ``runtime_models/my_custom_model.py``).  
 2. Import the ``CustomModel`` base class:
 
    .. code-block:: python
 
-       from models.custom_model import CustomModel
+       from runtime_models.custom_model import CustomModel
 
 3. Define your new model class inheriting from ``CustomModel``:
 

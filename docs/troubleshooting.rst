@@ -11,7 +11,7 @@ Screenshots crop stimuli images
 ----------------------------------
 If you do not set the resolution of your screen correctly, the whole application will run normally, but the screenshots taken during the experiment will be cropped. Please ensure that you set the correct resolution in the configuration file under the `monitor` section in the main configuration file.
 
-For more details see :ref:`_display_configuration` section.
+For more details see :ref:`Display configuration <display_configuration>` section.
 
 Psychopy version issues
 -------------------------
