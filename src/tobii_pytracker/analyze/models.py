@@ -2,7 +2,7 @@ import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Literal
 from scipy.stats import entropy
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -380,20 +380,13 @@ class FocusMapAnalyzer:
             plt.close(fig)
 
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from pathlib import Path
-from typing import Optional, Literal
-
-
 class SaccadeAnalyzer:
     """
-    Calculates saccade metrics (dx, dy, dt, amplitude, velocity) from gaze data.
+    Calculates saccade metrics (dx, dy, dt, amplitude, velocity, acceleration) from gaze data.
 
-    This version supports multiple parameterizations for different
-    saccade detection methods (velocity- and acceleration-based).
+    This version supports multiple parameterizations:
+      - Velocity-based or acceleration-based saccade detection.
+      - Optional micro-saccade filtering.
 
     Parameters
     ----------
@@ -405,13 +398,16 @@ class SaccadeAnalyzer:
             - 'acceleration' → Acceleration-threshold
         Default = 'ivt'.
     velocity_threshold : float, optional
-        Minimum velocity (pixels/second) to classify a movement as a saccade.
-        Used only for I-VT. Default = 100.
+        Minimum velocity (pixels/second) to classify as a saccade (I-VT only). Default = 100.
     acceleration_threshold : float, optional
-        Minimum acceleration (pixels/second²) to classify a movement as a saccade.
-        Used only for acceleration-based detection. Default = 5000.
+        Minimum acceleration (pixels/second²) to classify as a saccade (acceleration only). Default = 5000.
     min_duration : float, optional
         Minimum duration (seconds) to consider a saccade valid. Default = 0.01.
+    filter_micro_saccades : bool, optional
+        Whether to remove micro-saccades (small-amplitude movements). Default = False.
+    micro_saccade_threshold : float, optional
+        Amplitude threshold (in pixels) below which a saccade is considered a micro-saccade and removed.
+        Default = 30 pixels (roughly ~1° visual angle at 60 cm and 1080p resolution).
     """
 
     def __init__(
@@ -421,6 +417,8 @@ class SaccadeAnalyzer:
         velocity_threshold: float = 100.0,
         acceleration_threshold: float = 5000.0,
         min_duration: float = 0.01,
+        filter_micro_saccades: bool = False,
+        micro_saccade_threshold: float = 30.0,
     ):
         self.output_folder = Path(output_folder)
         self.output_folder.mkdir(parents=True, exist_ok=True)
@@ -429,6 +427,8 @@ class SaccadeAnalyzer:
         self.velocity_threshold = velocity_threshold
         self.acceleration_threshold = acceleration_threshold
         self.min_duration = min_duration
+        self.filter_micro_saccades = filter_micro_saccades
+        self.micro_saccade_threshold = micro_saccade_threshold
 
         self.results: Optional[pd.DataFrame] = None
 
@@ -438,8 +438,6 @@ class SaccadeAnalyzer:
     def analyze(self, background_data: pd.DataFrame) -> pd.DataFrame:
         """
         Compute saccade events and metrics.
-
-        Always processed per (set_name, slide_index).
 
         Parameters
         ----------
@@ -451,8 +449,9 @@ class SaccadeAnalyzer:
         -------
         pd.DataFrame
             DataFrame of saccade events with columns:
-            ['set_name','slide_index','system_time','t_prev','x_prev','y_prev',
-             'avg_gaze_x','avg_gaze_y','dx','dy','dt','amplitude','velocity','acceleration']
+            ['set_name','slide_index','start_time','end_time','duration',
+             'x_start','y_start','x_end','y_end','amplitude','peak_velocity',
+             'mean_velocity','mean_acceleration']
         """
         df = background_data.copy()
         events_list = []
@@ -462,7 +461,6 @@ class SaccadeAnalyzer:
             if len(g) < 2:
                 continue
 
-            # Compute velocity & acceleration
             g["x_prev"] = g["avg_gaze_x"].shift(1)
             g["y_prev"] = g["avg_gaze_y"].shift(1)
             g["t_prev"] = g["system_time"].shift(1)
@@ -476,6 +474,7 @@ class SaccadeAnalyzer:
             g["velocity"] = g["amplitude"] / g["dt"]
             g["acceleration"] = g["velocity"].diff() / g["dt"]
 
+            # Saccade detection rule
             if self.method == "ivt":
                 mask = g["velocity"] > self.velocity_threshold
             elif self.method == "acceleration":
@@ -498,12 +497,22 @@ class SaccadeAnalyzer:
             if start_idx is not None:
                 saccades.append((start_idx, len(g) - 1))
 
-            # Aggregate per detected saccade
+            # Aggregate per saccade
             for start_idx, end_idx in saccades:
                 seg = g.iloc[start_idx:end_idx + 1]
                 duration = seg["dt"].sum()
                 if duration < self.min_duration:
                     continue
+
+                amp = np.sqrt(
+                    (seg["avg_gaze_x"].iloc[-1] - seg["x_prev"].iloc[0])**2 +
+                    (seg["avg_gaze_y"].iloc[-1] - seg["y_prev"].iloc[0])**2
+                )
+
+                # Optional micro-saccade filtering
+                if self.filter_micro_saccades and amp < self.micro_saccade_threshold:
+                    continue
+
                 events_list.append({
                     "set_name": set_name,
                     "slide_index": slide_index,
@@ -514,10 +523,7 @@ class SaccadeAnalyzer:
                     "y_start": seg["y_prev"].iloc[0],
                     "x_end": seg["avg_gaze_x"].iloc[-1],
                     "y_end": seg["avg_gaze_y"].iloc[-1],
-                    "amplitude": np.sqrt(
-                        (seg["avg_gaze_x"].iloc[-1] - seg["x_prev"].iloc[0])**2 +
-                        (seg["avg_gaze_y"].iloc[-1] - seg["y_prev"].iloc[0])**2
-                    ),
+                    "amplitude": amp,
                     "peak_velocity": seg["velocity"].max(),
                     "mean_velocity": seg["velocity"].mean(),
                     "mean_acceleration": seg["acceleration"].abs().mean(),
@@ -528,8 +534,8 @@ class SaccadeAnalyzer:
         else:
             events_df = pd.DataFrame(columns=[
                 "set_name", "slide_index", "start_time", "end_time", "duration",
-                "x_start", "y_start", "x_end", "y_end",
-                "amplitude", "peak_velocity", "mean_velocity", "mean_acceleration"
+                "x_start", "y_start", "x_end", "y_end", "amplitude",
+                "peak_velocity", "mean_velocity", "mean_acceleration"
             ])
 
         self.results = events_df
@@ -622,14 +628,6 @@ class SaccadeAnalyzer:
         else:
             plt.close(fig)
 
-
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from pathlib import Path
-from typing import Optional, Literal
 
 
 class FixationAnalyzer:
@@ -883,54 +881,413 @@ class FixationAnalyzer:
             plt.close(fig)
 
 
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from scipy.spatial import ConvexHull
+from scipy.ndimage import gaussian_filter
+from pathlib import Path
+from typing import Optional
+from math import log2
+
+
+class EntropyAnalyzer:
+    """
+    Computes gaze entropy and dispersion measures (Shannon entropy and Convex Hull area).
+
+    Parameters
+    ----------
+    output_folder : Path
+        Directory where results and plots are saved.
+    """
+
+    def __init__(self, output_folder: Path):
+        self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+        self.results: Optional[pd.DataFrame] = None
+
+    # ======================================================
+    # ANALYSIS
+    # ======================================================
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "slide",
+        bins: int = 100,
+        use_convex_hull: bool = True,
+    ) -> pd.DataFrame:
+        """
+        Compute spatial entropy of gaze distributions.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Flattened gaze data containing ['avg_gaze_x', 'avg_gaze_y', 'set_name', 'slide_index'].
+        per : {'global', 'set', 'slide'}, optional
+            How to group data before computing entropy.
+        bins : int, optional
+            Number of bins for 2D histogram.
+        use_convex_hull : bool, optional
+            If True, computes convex hull area as an additional dispersion measure.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with entropy and convex hull metrics per group.
+        """
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("`per` must be one of ['global', 'set', 'slide'].")
+
+        # Prepare grouping
+        if per == "global":
+            groups = [("global", background_data)]
+        elif per == "set":
+            groups = background_data.groupby("set_name")
+        else:  # per == "slide"
+            groups = background_data.groupby(["set_name", "slide_index"])
+
+        results = []
+        for group_key, df in groups:
+            coords = df[["avg_gaze_x", "avg_gaze_y"]].dropna().to_numpy()
+            if len(coords) < 3:
+                continue
+
+            # Compute 2D histogram (spatial distribution)
+            heatmap, _, _ = np.histogram2d(
+                df["avg_gaze_x"], df["avg_gaze_y"],
+                bins=bins
+            )
+            p = heatmap / np.sum(heatmap)
+            p_nonzero = p[p > 0]
+
+            # Shannon entropy (base 2)
+            entropy = -np.sum(p_nonzero * np.log2(p_nonzero))
+
+            # Convex hull area
+            convex_area = np.nan
+            if use_convex_hull:
+                try:
+                    hull = ConvexHull(coords)
+                    convex_area = hull.volume  # 2D "volume" == area
+                except Exception:
+                    convex_area = np.nan
+
+            # Store results
+            result = {
+                "entropy": entropy,
+                "convex_hull_area": convex_area,
+                "num_points": len(coords),
+            }
+
+            if per == "set":
+                result["set_name"] = group_key
+            elif per == "slide":
+                result["set_name"], result["slide_index"] = group_key
+
+            results.append(result)
+
+        results_df = pd.DataFrame(results)
+        self.results = results_df
+        return results_df
+
+    # ======================================================
+    # VISUALIZATION
+    # ======================================================
+    def plot_analysis(
+        self,
+        background_data: pd.DataFrame,
+        screenshot_path: Path,
+        title: Optional[str] = None,
+        flip_y: bool = True,
+        bins: int = 100,
+        blur_sigma: float = 3.0,
+        cmap: str = "hot",
+        alpha: float = 0.6,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Visualize gaze entropy overlayed on an image (heatmap + convex hull).
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            The gaze data used to compute entropy.
+        screenshot_path : Path
+            Path to screenshot image.
+        title : str, optional
+            Plot title.
+        flip_y : bool, optional
+            Whether to flip Y-axis (for screen coordinates).
+        bins : int, optional
+            Histogram bins for the spatial heatmap.
+        blur_sigma : float, optional
+            Gaussian smoothing factor for heatmap.
+        cmap : str, optional
+            Colormap for heatmap.
+        alpha : float, optional
+            Transparency for heatmap overlay.
+        show : bool, optional
+            Whether to show the plot.
+        save_path : Path, optional
+            If provided, save the figure to this path.
+        """
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        # Load screenshot
+        img = mpimg.imread(screenshot_path)
+        H, W = img.shape[:2]
+
+        # Convert coordinates
+        xs = W / 2 + background_data["avg_gaze_x"].dropna().values
+        ys = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data["avg_gaze_y"].dropna().values
+
+        # Compute heatmap for visualization
+        heatmap, _, _ = np.histogram2d(xs, ys, bins=bins, range=[[0, W], [0, H]])
+        heatmap = gaussian_filter(heatmap, sigma=blur_sigma)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.imshow(img, origin="upper")
+        ax.imshow(
+            heatmap.T,
+            cmap=cmap,
+            alpha=alpha,
+            origin="upper",
+            extent=[0, W, H, 0],
+        )
+
+        # Optional convex hull outline
+        coords = np.column_stack([xs, ys])
+        if len(coords) >= 3:
+            try:
+                hull = ConvexHull(coords)
+                for simplex in hull.simplices:
+                    ax.plot(coords[simplex, 0], coords[simplex, 1], "c-", lw=2, alpha=0.7)
+            except Exception:
+                pass
+
+        ax.set_title(title or "Gaze Entropy Visualization")
+        ax.axis("off")
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from pathlib import Path
+from typing import Optional, List, Union
+from sklearn.cluster import DBSCAN, KMeans
+
+
 # ======================================================
 # CLUSTER ANALYZER
 # ======================================================
-class ClusterAnalyzer(BaseAnalyzer):
-    """Performs clustering on gaze coordinates."""
+class ClusterAnalyzer:
+    """
+    Performs clustering on gaze coordinates.
 
-    def analyze(self, data: pd.DataFrame, clustering_model=None, eps=0.05, min_samples=5) -> pd.DataFrame:
-        X = data[["avg_gaze_x", "avg_gaze_y"]].dropna().to_numpy()
-        model = clustering_model or DBSCAN(eps=eps, min_samples=min_samples)
-        labels = model.fit_predict(X)
-        valid_idx = data[["avg_gaze_x", "avg_gaze_y"]].dropna().index
-        data.loc[valid_idx, "cluster_label"] = labels
-        self.results = data[["system_time", "cluster_label"]]
-        return self.results
+    Supports flexible clustering backends (DBSCAN, KMeans, or custom).
+    Results can be visualized by overlaying cluster-colored gaze points
+    on the corresponding screenshot.
 
-    def plot_analysis(self, data: pd.DataFrame, color_map="tab10"):
-        df = data.dropna(subset=["avg_gaze_x", "avg_gaze_y", "cluster_label"])
-        labels = sorted(set(df["cluster_label"]))
-        cmap = cm.get_cmap(color_map, len(labels))
-        plt.figure(figsize=(8, 6))
-        for i, label in enumerate(labels):
-            cluster = df[df["cluster_label"] == label]
-            plt.scatter(cluster["avg_gaze_x"], cluster["avg_gaze_y"], color=cmap(i), s=20, alpha=0.7)
-        plt.title("Clusters")
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.show()
+    Parameters
+    ----------
+    output_folder : Path
+        Directory where results or plots can be saved.
+    columns : list[str], optional
+        Columns to use for clustering (default: ['avg_gaze_x', 'avg_gaze_y']).
+    clustering_model : object, optional
+        Custom scikit-learn–compatible clustering model.
+        If None, DBSCAN(eps, min_samples) is used.
+    eps : float, optional
+        DBSCAN epsilon parameter (ignored if using custom model).
+    min_samples : int, optional
+        DBSCAN min_samples parameter (ignored if using custom model).
+    n_clusters : int, optional
+        KMeans number of clusters (only used if clustering_model='kmeans').
+    """
 
+    def __init__(
+        self,
+        output_folder: Path,
+        columns: Optional[List[str]] = None,
+        clustering_model: Optional[object] = None,
+        eps: float = 0.05,
+        min_samples: int = 5,
+        n_clusters: Optional[int] = None,
+    ):
+        self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
 
-# ======================================================
-# ENTROPY ANALYZER
-# ======================================================
-class EntropyAnalyzer(BaseAnalyzer):
-    """Computes entropy of gaze distributions."""
+        self.columns = columns or ["avg_gaze_x", "avg_gaze_y"]
+        self.clustering_model = clustering_model
+        self.eps = eps
+        self.min_samples = min_samples
+        self.n_clusters = n_clusters
+        self.results: Optional[pd.DataFrame] = None
 
-    def analyze(self, data: pd.DataFrame) -> pd.DataFrame:
-        hist, _, _ = np.histogram2d(data["avg_gaze_x"], data["avg_gaze_y"], bins=20)
-        p = hist.flatten() / hist.sum()
-        ent = entropy(p[p > 0])
-        results = pd.DataFrame({"entropy": [ent]})
-        self.results = results
-        return results
+    # ======================================================
+    # ANALYSIS
+    # ======================================================
+    def analyze(
+        self,
+        data: pd.DataFrame,
+        clustering_model: Optional[object] = None,
+        eps: Optional[float] = None,
+        min_samples: Optional[int] = None,
+        n_clusters: Optional[int] = None,
+    ) -> pd.DataFrame:
+        """
+        Perform clustering on gaze coordinates.
 
-    def plot_analysis(self):
-        plt.bar(["Entropy"], [self.results["entropy"].iloc[0]], color="orange")
-        plt.title("Gaze Entropy")
-        plt.ylabel("Entropy")
-        plt.show()
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Flattened gaze data with columns like ['avg_gaze_x', 'avg_gaze_y', 'set_name', 'slide_index'].
+        clustering_model : object, optional
+            Custom clustering model. Must implement .fit(X) and .labels_.
+        eps : float, optional
+            DBSCAN epsilon parameter.
+        min_samples : int, optional
+            DBSCAN min_samples parameter.
+        n_clusters : int, optional
+            KMeans n_clusters parameter.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with an additional 'cluster' column.
+        """
+        df = data.copy()
+
+        # Determine which model to use
+        model = clustering_model or self.clustering_model
+
+        if model is None:
+            # Default to DBSCAN
+            eps = eps or self.eps
+            min_samples = min_samples or self.min_samples
+            model = DBSCAN(eps=eps, min_samples=min_samples)
+        elif isinstance(model, str) and model.lower() == "kmeans":
+            n_clusters = n_clusters or self.n_clusters or 5
+            model = KMeans(n_clusters=n_clusters, n_init="auto", random_state=42)
+
+        # Extract feature columns
+        X = df[self.columns].dropna().to_numpy()
+        if len(X) == 0:
+            raise ValueError("No valid gaze data available for clustering.")
+
+        # Fit model
+        model.fit(X)
+        labels = model.labels_
+
+        # Append labels
+        df = df.loc[df[self.columns].dropna().index]
+        df["cluster"] = labels
+
+        # Store results
+        self.results = df
+        return df
+
+    # ======================================================
+    # VISUALIZATION
+    # ======================================================
+    def plot_analysis(
+        self,
+        background_data: pd.DataFrame,
+        screenshot_path: Path,
+        title: Optional[str] = None,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        flip_y: bool = True,
+        alpha: float = 0.7,
+        point_size: float = 30.0,
+        show_noise: bool = True,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Visualize gaze points colored by cluster assignment.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Data returned by analyze(), with a 'cluster' column.
+        screenshot_path : Path
+            Path to the screenshot for this slide.
+        title : str, optional
+            Plot title.
+        set_name : str, optional
+            Filter to a particular set.
+        slide_index : int, optional
+            Filter to a particular slide.
+        flip_y : bool, optional
+            Whether to flip Y-axis (consistent with other analyzers).
+        alpha : float, optional
+            Transparency of points.
+        point_size : float, optional
+            Marker size.
+        show_noise : bool, optional
+            Whether to show noise points (cluster = -1).
+        show : bool, optional
+            Whether to display the figure interactively.
+        save_path : Path, optional
+            If provided, saves the plot to this path.
+        """
+        if "cluster" not in background_data.columns:
+            raise ValueError("Data must contain a 'cluster' column from analyze().")
+
+        df = background_data.copy()
+        if set_name is not None and "set_name" in df.columns:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None and "slide_index" in df.columns:
+            df = df[df["slide_index"] == slide_index]
+
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        img = mpimg.imread(screenshot_path)
+        H, W = img.shape[:2]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.imshow(img, origin="upper")
+
+        clusters = np.unique(df["cluster"].dropna())
+        colors = plt.cm.tab10(np.linspace(0, 1, len(clusters)))
+
+        for cluster, color in zip(clusters, colors):
+            if cluster == -1 and not show_noise:
+                continue
+            subset = df[df["cluster"] == cluster]
+            xs = W / 2 + subset["avg_gaze_x"]
+            ys = H / 2 - subset["avg_gaze_y"] if flip_y else H / 2 + subset["avg_gaze_y"]
+            ax.scatter(xs, ys, s=point_size, c=[color], alpha=alpha, label=f"Cluster {cluster}")
+
+        ax.legend(loc="best", fontsize=8)
+        ax.set_title(title or f"Cluster visualization — {set_name or 'All'} (Slide {slide_index or '?'})")
+        ax.axis("off")
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
 
 
 class ConceptAnalyzer(BaseAnalyzer):
