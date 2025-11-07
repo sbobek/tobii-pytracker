@@ -48,12 +48,14 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
    :caption: Tutorials on data analysis
 
    Data loading and visualization <data_loading_visualization>
+   Data analyzers <data_analyzers>
 
 .. toctree::
    :maxdepth: 2
    :caption: Reference
 
    API reference <api>
+   Extending Tobii-Pytracker <extending>
 
 .. toctree::
    :maxdepth: 1

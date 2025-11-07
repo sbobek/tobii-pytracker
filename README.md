@@ -18,7 +18,7 @@ This toolkit allows to conduct scientific researches of human classification vis
 
 - Python 3.10.x - _(Python 3.10 version is __crucial__, the script won't work with any other version)_
 - Pip
-- [Tobii Pro Eye Tracker Manager](https://connect.tobii.com/s/etm-downloads?language=en_US)
+- [Tobii Pro Eye Tracker Manager](https://connect.tobii.com/s/etm-downloads?language=en_US) (only optional, for some extra features like firmware updates, etc.)
 
 ## Installation
 
