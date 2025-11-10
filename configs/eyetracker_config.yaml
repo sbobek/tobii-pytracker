@@ -1,15 +1,15 @@
-Display:
-    name: monitor
-    reporting_unit_type: pix
-    device_number: 0
-    physical_dimensions:
-        width: 527
-        height: 296
-        unit_type: pix
-    default_eye_distance:
-        surface_center: 1000
-        unit_type: pix
-    psychopy_monitor_name: spectrum_monitor
+# Display:
+#     name: monitor
+#     reporting_unit_type: pix
+#     device_number: 0
+#     physical_dimensions:
+#         width: 527
+#         height: 296
+#         unit_type: pix
+#     default_eye_distance:
+#         surface_center: 1000
+#         unit_type: pix
+#     psychopy_monitor_name: spectrum_monitor
 
 eyetracker.hw.tobii.EyeTracker:
     # Indicates if the device should actually be loaded at experiment runtime.
