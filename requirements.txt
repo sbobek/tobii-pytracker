@@ -6,7 +6,7 @@ pyserial==3.5
 scipy==1.13.1
 json_tricks==3.17.3
 requests==2.32.2
-pyglet==1.5.2
+pyglet==1.4.11
 Pillow==10.3.0
 python-bidi==0.4.2
 pandas==2.2.2

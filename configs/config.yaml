@@ -9,8 +9,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 1536
-      - 960
+      - 1920
+      - 1200
     width: 35
     distance: 60
   gui:

@@ -15,8 +15,11 @@ For more details see :ref:`Display configuration <display_configuration>` sectio
 
 Psychopy version issues
 -------------------------
-We tested software with Psychopy version 2024.1.4.
-If you encounter any issues related to Psychopy, please ensure that you have the correct version installed. 
+We tested software with Psychopy versions 2024.1.4 up to 2025.1.1.
+The software works perfectly on all these versions, but there are some dependencies that need to be fulfilled (read the rest of troubleshooting for more details).
+If you encounter any issues related to Psychopy, please ensure that you have the correct version installed.
+
+The only issue that we found is with the latest Psychopy version `>= 2025.1.1` where in case of mouse eyetracker emulation, the calibration does not start. However, calibration is not needed in case of mouse tracker, so it is only the error that can be ignored.
 
 Ultralytics version issues
 ---------------------------
@@ -24,8 +27,30 @@ Ultralytics package is used for YOLO model handling.
 Tobii-Pytracker is tested with Ultralytics version 8.3, but even this version installs automatically torch, that may break the previous requirements regarding ``numpy==1.26.4``.
 If you encounter any issues related to numpy version, please ensure that you have the correct version installed.
 
-Issues with pyglet and WMFDecoder
-----------------------------------
-On Windows you may see errors related to pyglet package, such as: `AttributeError: 'WMFDecoder' object has no attribute 'MFShutdown'`.
-We do not use pyglet directly, but it is a dependency of Psychopy, hence you may ignore these errors, as they do not affect the functionality of Tobii-Pytracker.
 
+Issues with screen scaling on Windows
+--------------------------------------
+
+On Windows 11 by default content scaling is turned on. It means that the resolution set in settings of the screen is additionally scaled, which makes the alignment of mouse emulated eyetracker and screen screenshots not aligned.
+
+Turn off the scaling for safety: . Go to `Settings` -> `Select Display` -> `Select "Turn Off custom scaling and Sign out"`.
+
+Issues with recording data with Tobii
+--------------------------------------
+
+If you encounter the following error when trying to record data with Tobii eyetracker in PsychoPy:
+
+.. code-block:: python
+
+    File "...\lib\site-packages\psychopy_eyetracker_tobii\tobii\eyetracker.py", line 458, in            _getIOHubEventObject
+    right_gx, right_gy, right_gz = eye_data_event['right_gaze_origin_in_trackbox_coordinate_system']
+    KeyError: 'right_gaze_origin_in_trackbox_coordinate_system'
+
+Make sure that you have the correct version of `tobii-research` and `psychopy-eyetracker-tobii` packages installed.
+
+.. code-block:: text
+    psychopy-eyetracker-tobii==0.0.3
+    tobii-research==2.0.0 
+
+
+Since `tobii-research` version 2.1.0 there were some changes in the data provided by Tobii eyetrackers.
