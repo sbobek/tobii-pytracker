@@ -9,8 +9,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 3440
-      - 1440
+      - 1920
+      - 1200
     width: 35
     distance: 60
   gui:
@@ -34,7 +34,7 @@ output:
   folder: output
 
 model:
-  folder: models
+  folder: runtime_models
   module: custom_yolo_model
   class: CustomYoloModel
 

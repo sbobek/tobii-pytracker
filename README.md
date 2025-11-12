@@ -2,7 +2,22 @@
  ![PyPI - Downloads](https://img.shields.io/pypi/dm/tobii-pytracker) [![Documentation Status](https://readthedocs.org/projects/tobii-pytracker/badge/?version=latest)](https://tobii-pytracker.readthedocs.io/en/latest/?badge=latest)
 # Toolkit for AI-enhanced Eye-tracking data collection
 
-This toolkit allows to conduct scientific researches of human classification visual aspect by gathering human gaze data on 2 different types of data. It's modality is defined for images and text. The graphical interface uses PsychoPy library and is created dynamically from a dataset with a strict structure. Main config file allows to override values for different PsychoPy research environments which grants more control over received results. Processing pipeline can be extended with a custom model for additional prediction data to compare with human classification. The data of human eye gaze, as well as average pupil size, is collected with Tobbii eyetracker and saved to a file with the rest of results.
+
+A Python framework for conducting **eyetracking-based experiments** on **perception** and **reasoning** in machine learning (ML) tasks, as well as for **data enrichment**.
+
+
+The framework integrates multiple data modalities commonly used as inputs for ML models and provides a platform for **rapid experiment design and execution**. It combines the **PsychoPy** platform for basic user input and **eye-tracking hardware calibration (and emulation)**, **state-of-the-art AI models** for data processing and analysis, and a **custom, extensible architecture** built on top of `tobii-pytracker`.
+
+
+- **Non-intrusive, multimodal data labeling**, including:
+  - Classical label assignment  
+  - ML-guided object annotations with **free speech input**, which is automatically transcribed into text and aligned with the regions the user refers to (based on **eye gaze area-of-interest detection**)
+
+- **Analytical platform** for experiment results, offering:
+  - Classical metrics such as **saccades**, **fixations**, and **heatmaps**  
+  - Advanced methods for **analysis and visualization**, including **process mining scanpath analysis** and **concept detection based on eye-gaze clusters**
+
+
 
 ![Alt text](https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/tobii-pytracker.svg)
 
@@ -18,7 +33,7 @@ This toolkit allows to conduct scientific researches of human classification vis
 
 - Python 3.10.x - _(Python 3.10 version is __crucial__, the script won't work with any other version)_
 - Pip
-- [Tobii Pro Eye Tracker Manager](https://connect.tobii.com/s/etm-downloads?language=en_US)
+- [Tobii Pro Eye Tracker Manager](https://connect.tobii.com/s/etm-downloads?language=en_US) (only optional, for some extra features like firmware updates, etc.)
 
 ## Installation
 
@@ -36,7 +51,7 @@ This toolkit allows to conduct scientific researches of human classification vis
    Note that we need psychopy in a version at least 2024.1.4
    
    ```sh
-   pip install psychopy>=2024.1.4 --no-deps
+   pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
    ```
 
 
@@ -94,7 +109,7 @@ Different datasets can be specified in the config file that will be processed an
 
 ## Custom Model
 
-The `CustomModel` class (located in `models/custom_model.py`) serves as an abstract base class. It defines the essential methods that any custom model implementation must provide. By inheriting from `CustomModel` and implementing these methods, your custom model can seamlessly interact with the rest of the toolkit:
+The `CustomModel` class (located in `runtime_models/custom_model.py`) serves as an abstract base class. It defines the essential methods that any custom model implementation must provide. By inheriting from `CustomModel` and implementing these methods, your custom model can seamlessly interact with the rest of the toolkit:
 
 - `prepare_model(self)`: Load and prepare model for prediction
 - `predict(self, input_data)`: Run prediction with the loaded model
@@ -103,11 +118,11 @@ The `CustomModel` class (located in `models/custom_model.py`) serves as an abstr
 ### Creating Your Own Model Modules
 To create your own model module:
 
-1. Create a new Python file within the specified directory (e.g., `models/my_custom_model.py`).
+1. Create a new Python file within the specified directory (e.g., `runtime_models/my_custom_model.py`).
 
 2. Import the CustomModel class:
 ```python
-from models.custom_model import CustomModel
+from runtime_models.custom_model import CustomModel
 ```
 
 3. Define a new class that inherits from `CustomModel`:

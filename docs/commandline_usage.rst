@@ -69,6 +69,12 @@ Other Options
 
 Example Usage
 -------------
+1. **Run a GUI experiment without eye-tracker just to test the stimuli display**:
+
+.. code-block:: bash
+
+    tobii-pytracker 
+
 1. **Run a GUI experiment with eye-tracker, model, and voice recording**:
 
 .. code-block:: bash
@@ -86,6 +92,12 @@ Example Usage
 .. code-block:: bash
 
     tobii-pytracker --enable_voice --disable_psychopy
+
+4. **Run GUI experiment with mouse eyetracker emulation**:
+
+.. code-block:: bash
+
+    tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker
 
 File Output
 -----------

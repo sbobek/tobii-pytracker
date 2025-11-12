@@ -121,7 +121,6 @@ def main(config, loop_count, eyetracker_config_file,
     """
     
     dataset = CustomDataset(config)
-
     monitor, window, buttons = None, None, None
 
     # --- Optional PsychoPy GUI setup ---
@@ -132,6 +131,7 @@ def main(config, loop_count, eyetracker_config_file,
 
     # --- Initialize Eye Tracker ---
     io, tracker = (None, None)
+    buffer, last_event_id = {}, 0
     if enable_eyetracker:
         io, tracker = eyetracker.launch_hub_server(eyetracker_config_file, window if enable_psychopy else None)
 
@@ -161,6 +161,11 @@ def main(config, loop_count, eyetracker_config_file,
         intro_text = config.get_instructions_config()["intro"]
         gui.show_instructions(window, intro_text)
 
+    # Detect if this is a MouseGaze tracker
+    iohub_config = CustomConfig.read_config(eyetracker_config_file)
+    is_mouse_tracker =  eyetracker.is_mouse_eyetracker(iohub_config)
+    move_button_idx = eyetracker.get_mouse_move_button_idx(iohub_config)
+
     # --- Main try/finally block to ensure cleanup ---
     try:
         with open(output_file, "w", newline='', encoding='utf-8') as csvfile:
@@ -173,7 +178,7 @@ def main(config, loop_count, eyetracker_config_file,
 
             last_click_time = core.getTime()
             focus_time = 2.0
-            debounce_time = 0.0
+            debounce_time = 0.5
 
             # --- Headless mode (no PsychoPy GUI) ---
             if not enable_psychopy and enable_eyetracker:
@@ -182,9 +187,11 @@ def main(config, loop_count, eyetracker_config_file,
                     with open(os.path.join(output_folder, "raw_stream.csv"), "w", newline='', encoding="utf-8") as rawfile:
                         raw_writer = csv.writer(rawfile)
                         raw_writer.writerow(["timestamp", "sample_data"])
+
                         while True:
                             try:
-                                sample = eyetracker.get_full_raw_sample(tracker)
+                                buffer, last_event_id = eyetracker.poll_tracker_events(tracker, buffer, last_event_id)
+                                sample = eyetracker.extract_full_raw_event(buffer)
                                 if sample:
                                     raw_writer.writerow([datetime.now().isoformat(), sample])
                                 core.wait(0.01)
@@ -210,7 +217,6 @@ def main(config, loop_count, eyetracker_config_file,
 
                 gaze_data = []
                 next_data = False
-
                 voice_thread, voice_stop_event, voice_filename, voice_start_time = None, None, None, None
 
                 if enable_voice:
@@ -227,21 +233,37 @@ def main(config, loop_count, eyetracker_config_file,
                 try:
                     while not next_data:
                         current_time = core.getTime()
-                        gaze_timestamp = round(current_time - last_click_time - focus_time, 4)
                         mouse = event.Mouse(win=window)
 
                         if enable_eyetracker:
                             try:
-                                if raw_data:
-                                    full_sample = eyetracker.get_full_raw_sample(tracker)
-                                    if full_sample:
-                                        gaze_data.append((gaze_timestamp, full_sample))
-                                else:
-                                    gaze_position = eyetracker.get_gaze_position(config, tracker)
-                                    avg_pupil_size = eyetracker.get_avg_pupil_size(tracker)
-                                    gaze_data.append((gaze_position, avg_pupil_size, gaze_timestamp))
+                                # --- Poll buffer and avoid duplicates ---
+                                buffer, last_event_id = eyetracker.poll_tracker_events(tracker, buffer, last_event_id)
+                                # Determine if we should record gaze samples
+                                should_record = True
+                                if is_mouse_tracker:
+                                    pressed = mouse.getPressed()
+                                    should_record = pressed[move_button_idx]  # only record while configured button pressed
+
+                                if should_record:
+                                    current_time = core.getTime()
+                                    if raw_data:
+                                        full_sample = eyetracker.extract_full_raw_event(buffer, system_time=current_time)
+                                        if full_sample:
+                                            gaze_data.extend(full_sample)
+                                    else:
+                                        eye_sample = eyetracker.extract_eye_gaze_events(buffer, system_time=current_time, config=config)
+                                        if eye_sample:
+                                            gaze_data.extend(eye_sample)
+                                elif enable_eyetracker and tracker:
+                                    tracker.clearEvents()
+                                    buffer.clear()
+                                 
+
                             except Exception as e:
+                                import traceback
                                 LOGGER.error(f"Eye tracker error: {e}")
+                                traceback.print_exc()
 
                         # --- Check button presses ---
                         for rect, text, label in buttons:
@@ -269,6 +291,8 @@ def main(config, loop_count, eyetracker_config_file,
                                 writer.writerow(row_data)
 
                                 if label == "functional_quit":
+                                    if enable_eyetracker and tracker:
+                                        tracker.clearEvents()
                                     LOGGER.info("Exit button pressed. Quitting...")
                                     return
 

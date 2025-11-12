@@ -1,5 +1,4 @@
-import os
-import numpy as np
+
 from abc import ABC, abstractmethod
 from tobii_pytracker.utils.custom_logger import CustomLogger
 
