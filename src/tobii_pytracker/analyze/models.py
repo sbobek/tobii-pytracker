@@ -1306,78 +1306,7 @@ class ConceptAnalyzer(BaseAnalyzer):
     def __init__(self, background_data: pd.DataFrame):
         super().__init__(background_data)
 
-    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
-        """
-        Identify and analyze concepts based on cluster labels.
-
-        Parameters
-        ----------
-        mode : str, optional
-            'slide' — compute per-slide per-subject
-            'set' — compute per-subject across slides
-            'global' — aggregate across all data
-        subset : list[str], optional
-            Optional list of subject identifiers to include in analysis.
-
-        Returns
-        -------
-        pd.DataFrame
-            Concept engagement statistics.
-        """
-        data = self.background_data.copy()
-
-        if subset is not None:
-            data = data[data["set_name"].isin(subset)]
-
-        if "cluster_label" not in data.columns:
-            raise ValueError("Cluster labels required. Run ClusterAnalyzer first.")
-
-        group_keys = {
-            "slide": ["set_name", "slide_index", "cluster_label"],
-            "set": ["set_name", "cluster_label"],
-            "global": ["cluster_label"],
-        }[mode]
-
-        concept_stats = (
-            data.groupby(group_keys)
-            .agg(
-                mean_duration=("system_time", lambda x: x.max() - x.min()),
-                fixation_count=("event_id", "nunique"),
-            )
-            .reset_index()
-            .rename(columns={"cluster_label": "concept_id"})
-        )
-
-        self.results = concept_stats
-        return concept_stats
-
-    def plot_analysis(self, set_name: str = None, slide_index: int = None):
-        """
-        Visualize mean engagement duration per concept.
-
-        Parameters
-        ----------
-        set_name : str, optional
-            Subject name for filtering (used if mode='set' or 'slide').
-        slide_index : int, optional
-            Slide index (used if mode='slide').
-        """
-        if self.results is None or self.results.empty:
-            raise ValueError("Run analyze() before plotting.")
-
-        df = self.results.copy()
-        if set_name is not None:
-            df = df[df["set_name"] == set_name]
-        if slide_index is not None and "slide_index" in df.columns:
-            df = df[df["slide_index"] == slide_index]
-
-        plt.figure(figsize=(8, 4))
-        plt.bar(df["concept_id"], df["mean_duration"], color="teal")
-        plt.title(f"Concept Engagement — {set_name or 'Global'}")
-        plt.xlabel("Concept ID")
-        plt.ylabel("Mean Duration")
-        plt.show()
-
+    #TODO: Implement methods for concept definition and analysis.
 
 class ScanpathsAnalyzer(BaseAnalyzer):
     """
@@ -1387,77 +1316,8 @@ class ScanpathsAnalyzer(BaseAnalyzer):
 
     def __init__(self, background_data: pd.DataFrame):
         super().__init__(background_data)
-
-    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
-        """
-        Compute fixation-to-fixation transitions (scanpaths).
-
-        Parameters
-        ----------
-        mode : str, optional
-            'slide' — per slide per subject
-            'set' — per subject across slides
-            'global' — across all subjects
-        subset : list[str], optional
-            Restrict analysis to specific subjects.
-
-        Returns
-        -------
-        pd.DataFrame
-            Transition counts.
-        """
-        data = self.background_data.copy()
-        if subset is not None:
-            data = data[data["set_name"].isin(subset)]
-
-        group_keys = {
-            "slide": ["set_name", "slide_index"],
-            "set": ["set_name"],
-            "global": [],
-        }[mode]
-
-        results = []
-        for _, group in data.groupby(group_keys or [lambda _: True]):
-            group = group.sort_values("system_time")
-            group["next_event"] = group["event_id"].shift(-1)
-            trans = (
-                group.groupby(["event_id", "next_event"])
-                .size()
-                .reset_index(name="count")
-            )
-            for key, val in zip(group_keys, group[group_keys].iloc[0].values) if group_keys else []:
-                trans[key] = val
-            results.append(trans)
-
-        transitions = pd.concat(results, ignore_index=True)
-        self.results = transitions
-        return transitions
-
-    def plot_analysis(self, set_name: str = None, slide_index: int = None):
-        """
-        Plot transition frequencies for scanpaths.
-
-        Parameters
-        ----------
-        set_name : str, optional
-        slide_index : int, optional
-        """
-        if self.results is None or self.results.empty:
-            raise ValueError("Run analyze() before plotting.")
-
-        df = self.results.copy()
-        if set_name is not None and "set_name" in df.columns:
-            df = df[df["set_name"] == set_name]
-        if slide_index is not None and "slide_index" in df.columns:
-            df = df[df["slide_index"] == slide_index]
-
-        plt.figure(figsize=(8, 5))
-        plt.bar(range(len(df)), df["count"])
-        plt.title(f"Scanpath Transitions — {set_name or 'Global'}")
-        plt.xlabel("Transition Index")
-        plt.ylabel("Count")
-        plt.show()
-
+    #TODO: Implement methods for concept definition and analysis.
+   
 
 class VoiceTranscription(BaseAnalyzer):
     """
@@ -1469,48 +1329,5 @@ class VoiceTranscription(BaseAnalyzer):
 
     def __init__(self, background_data: pd.DataFrame):
         super().__init__(background_data)
-
-    def analyze(self, mode: str = "set", subset=None) -> pd.DataFrame:
-        """
-        Generate aligned voice transcripts.
-
-        Parameters
-        ----------
-        mode : str, optional
-            'slide' — per slide
-            'set' — per subject
-            'global' — aggregated across all
-        subset : list[str], optional
-            Optional subset of subjects.
-        """
-        data = self.background_data.copy()
-        if subset is not None:
-            data = data[data["set_name"].isin(subset)]
-
-        transcripts = data[["set_name", "slide_index", "system_time"]].copy()
-        transcripts["transcribed_text"] = [
-            "dummy transcription" for _ in range(len(transcripts))
-        ]
-
-        self.results = transcripts
-        return transcripts
-
-    def plot_analysis(self, set_name: str = None, slide_index: int = None):
-        """
-        Show a sample of transcribed text.
-        """
-        if self.results is None or self.results.empty:
-            raise ValueError("Run analyze() before plotting.")
-
-        df = self.results.copy()
-        if set_name is not None:
-            df = df[df["set_name"] == set_name]
-        if slide_index is not None and "slide_index" in df.columns:
-            df = df[df["slide_index"] == slide_index]
-
-        sample_text = "\n".join(df["transcribed_text"].head(5))
-        plt.figure(figsize=(8, 4))
-        plt.text(0.05, 0.5, sample_text, fontsize=12)
-        plt.axis("off")
-        plt.title(f"Voice Transcription Sample — {set_name or 'Global'}")
-        plt.show()
+    #TODO: Implement methods for concept definition and analysis.
+    
