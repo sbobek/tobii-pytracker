@@ -4,13 +4,14 @@ import argparse
 import importlib
 import threading
 from datetime import datetime
+import traceback
 from psychopy import event, core
 
 from .utils import gui, eyetracker
 from .utils.voice import VoiceRecorder
 from .utils.custom_logger import CustomLogger
 from .configs.custom_config import CustomConfig
-from .datasets.custom_dataset import CustomDataset
+from .datasets.custom_dataset import TextDataset, ImageDataset
 
 
 LOGGER = None
@@ -120,7 +121,10 @@ def main(config, loop_count, eyetracker_config_file,
     until the user presses Ctrl+C.
     """
     
-    dataset = CustomDataset(config)
+    if config.get_dataset_text_config():
+        dataset = TextDataset(config)
+    else:
+        dataset = ImageDataset(config)
     monitor, window, buttons = None, None, None
 
     # --- Optional PsychoPy GUI setup ---
@@ -213,9 +217,17 @@ def main(config, loop_count, eyetracker_config_file,
 
                 data = sample['data']
                 classification = sample['class'].lower()
-                screenshot_path = gui.draw_window(config, window, data, dataset.is_text, buttons, focus_time, output_folder)
+                # screenshot_path = gui.draw_window(config, window, data, dataset.is_text, buttons, focus_time, output_folder)
+                screenshot_path, bboxes = gui.draw_window(config, 
+                                            window,
+                                            sample,
+                                            dataset,
+                                            buttons,
+                                            focus_time,
+                                            output_folder
+                                        )
 
-                gaze_data = []
+                gaze_data = [] 
                 next_data = False
                 voice_thread, voice_stop_event, voice_filename, voice_start_time = None, None, None, None
 
@@ -314,6 +326,8 @@ def main(config, loop_count, eyetracker_config_file,
         LOGGER.info("Experiment interrupted by user.")
     except Exception as e:
         LOGGER.error(f"Failed to save the data: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         # --- Cleanup ---
         if enable_psychopy and window:

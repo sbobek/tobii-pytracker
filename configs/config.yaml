@@ -3,7 +3,9 @@ dataset:
   # text:
   #   label_column_name: sentiment
   #   text_column_name: content
-  # path: datasets/dataset/twitter_validation.csv
+  #   color: white
+  #   background_color: black
+  # path: datasets/twitter/twitter_validation.csv
 
 display:
   monitor: 
@@ -34,7 +36,7 @@ output:
   folder: output
 
 model:
-  folder: runtime_models
+  folder: custom_runtime_models
   module: custom_yolo_model
   class: CustomYoloModel
 
