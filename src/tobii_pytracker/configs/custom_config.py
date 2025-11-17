@@ -29,15 +29,17 @@ class CustomConfig:
             self.get_text_dataset_config()
         elif self.dataset_type == "time_series":
             self.get_time_series_dataset_config()
+        
+        self.dataset_path = self.config["dataset"][self.dataset_type]["path"]
 
         self.get_monitor_config()
         self.get_button_config()
         self.get_output_config()
         self.get_instructions_config()
 
-
     def get_dataset_path(self):
         return self.dataset_path
+
     # ------------------------------------------------------
     #  DATASET TYPE DETECTION
     # ------------------------------------------------------
@@ -48,15 +50,6 @@ class CustomConfig:
         dataset_section = self.config["dataset"]
         if not isinstance(dataset_section, dict):
             raise ValueError("'dataset' must be a dictionary.")
-        
-        # required
-        if "path" not in dataset_section:
-            raise KeyError("Missing required image dataset field: path")
-        if not isinstance(dataset_section["path"], str):
-            raise ValueError("'path' must be a string for image dataset.")
-        
-        self.dataset_path = dataset_section["path"]
-
 
         valid_types = {"image", "text", "time_series"}
         present = valid_types.intersection(dataset_section.keys())
@@ -78,6 +71,12 @@ class CustomConfig:
 
         cfg = self.config["dataset"]["image"]
 
+        # required
+        if "path" not in cfg:
+            raise KeyError("Missing required image dataset field: path")
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for image dataset.")
+
         # optional bbox_model
         if "bbox_model" in cfg:
             allowed = ["grid", "superpixel", "saliency"]
@@ -95,11 +94,13 @@ class CustomConfig:
 
         cfg = self.config["dataset"]["text"]
 
-        required = ["label_column_name", "text_column_name"]
+        required = ["label_column_name", "text_column_name", "path"]
         for r in required:
             if r not in cfg:
                 raise KeyError(f"Missing required text dataset field: {r}")
 
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for text dataset.")
 
         # optional bbox_model
         if "bbox_model" in cfg:
@@ -118,10 +119,13 @@ class CustomConfig:
 
         cfg = self.config["dataset"]["time_series"]
 
-        required = ["label_column_name"]
+        required = ["label_column_name", "path"]
         for r in required:
             if r not in cfg:
                 raise KeyError(f"Missing required time-series dataset field: {r}")
+
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for time_series dataset.")
 
         # optional bbox_model
         if "bbox_model" in cfg:

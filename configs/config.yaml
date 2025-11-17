@@ -1,19 +1,19 @@
 dataset:
   #image:
     #bbox_model:  grid | superpixel | saliency
-  #path: datasets/pdt
+  #  path: datasets/pdt
   text:
     label_column_name: sentiment
     text_column_name: content
     color: white
     background_color: black
     #bbox_model: word|line|sentence
-  path: datasets/twitter/twitter_validation.csv
+    path: datasets/twitter/twitter_validation.csv
 
   # time_series:
   #   label_column_name: anomaly
   #   bbox_model:  sample|window
-  # path: datasets/ecg200/ecg200.csv
+  #   path: datasets/ecg200/ecg200.csv
 
 display:
   monitor: 
