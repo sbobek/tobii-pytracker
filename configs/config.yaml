@@ -1,14 +1,18 @@
 dataset:
-  # path: datasets/pdt
+  #image:
+    #bbox_model:  grid | superpixel | saliency
+  #path: datasets/pdt
   text:
     label_column_name: sentiment
     text_column_name: content
     color: white
     background_color: black
+    #bbox_model: word|line|sentence
   path: datasets/twitter/twitter_validation.csv
 
   # time_series:
   #   label_column_name: anomaly
+  #   bbox_model:  sample|window
   # path: datasets/ecg200/ecg200.csv
 
 display:
@@ -51,7 +55,7 @@ instructions:
     - "In this experiment, you will see a series of images or text samples."
     - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
     - ""
-    - "Press SPACE to begin."
+    - "Click on the window and press SPACE to begin."
   outro:
     - "Thank you for participating in this study!"
     - ""

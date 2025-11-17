@@ -49,7 +49,7 @@ def _image_load_size(path: str) -> Tuple[int, int]:
 class CustomDataset:
     def __init__(self, config: Any, calculate_bboxes: bool = False):
         self.config = config
-        self.dataset_path = config.get_dataset_config()["path"]
+        self.dataset_path = config.get_dataset_path()
         self.logger = CustomLogger("debug", __name__).logger
         self.classes: List[str] = []
         self.data: List[Dict[str, Any]] = []
@@ -82,7 +82,7 @@ class TextDataset(CustomDataset):
 
     def __init__(self, config: Any, calculate_bboxes: bool = False):
         super().__init__(config, calculate_bboxes)
-        self.text_cfg = self.config.get_dataset_text_config()
+        self.text_cfg = self.config.get_text_dataset_config()
         self.font_height = int(self.text_cfg.get("font_height", 35))
         # fraction of AOI width used for wrap (leave small margins)
         self.wrap_frac: float = float(self.text_cfg.get("wrap_fraction", 0.95))
@@ -217,36 +217,51 @@ class TextDataset(CustomDataset):
 
         return {"words": words_out, "lines": lines_out}
 
-
-# -------------------------
-# ImageDataset
-# -------------------------
 class ImageDataset(CustomDataset):
     """
-    Image dataset draws image to window scaled to (area_x, area_y).
-    If calculate_bboxes and a model is provided (or specified in config), model.process(image_path)
-    is called. Model.process must return a list of detections like:
-      [(class_name, confidence, (x_min, y_min, x_max, y_max)), ...]
-    where coordinates are in pixels on the input image.
-    We rescale those coordinates to AOI size and convert them to center-origin pixel coords.
+    Image dataset that draws images and computes bounding boxes.
+
+    - Does NOT accept a model directly.
+    - If config contains a bbox model, it is loaded automatically.
+    - If not, fallback AOI detection (grid/superpixel/saliency) is used.
+
+    This keeps the dataset completely model-agnostic.
     """
 
-    def __init__(self, config: Any, calculate_bboxes: bool = False, model: Optional[Any] = None):
+    def __init__(self, config: Any, calculate_bboxes: bool = False):
         super().__init__(config, calculate_bboxes)
-        self.model = model
-        if self.calculate_bboxes and self.model is None:
-            # try load from config (same pattern as your code)
+
+        self.model = None
+        self.default_detector = None
+        if calculate_bboxes:
+            self.default_detector = config.get("default_detector", "grid")  # grid | superpixel | saliency
+    
+        # Attempt to load a custom model from config
+        if self.calculate_bboxes:
             try:
                 cfg = self.config.get_bbox_model_config()
-                ModelClass = getattr(importlib.import_module(f"{cfg['folder']}.{cfg['module']}"), cfg['class'])
-                self.model = ModelClass(config, self)  # model must implement process(path)
+                ModelClass = getattr(
+                    importlib.import_module(f"{cfg['folder']}.{cfg['module']}"),
+                    cfg['class']
+                )
+                self.model = ModelClass(config, self)
             except Exception as e:
-                self.logger.error(f"Could not load model from config: {e}")
+                self.logger.warning(
+                    f"No valid custom bbox model found in config; "
+                    f"using fallback detector ({self.default_detector}). Error: {e}"
+                )
                 self.model = None
+
         self._load_data()
 
+    # ------------------------------------------------------------------
+    # Loading data
+    # ------------------------------------------------------------------
     def _load_data(self):
-        self.classes = [d for d in os.listdir(self.dataset_path) if os.path.isdir(os.path.join(self.dataset_path, d))]
+        self.classes = [
+            d for d in os.listdir(self.dataset_path)
+            if os.path.isdir(os.path.join(self.dataset_path, d))
+        ]
         self.classes.append("none")
 
         samples = []
@@ -254,60 +269,184 @@ class ImageDataset(CustomDataset):
             class_path = os.path.join(self.dataset_path, class_name)
             if not os.path.isdir(class_path):
                 continue
+
             for root, _, files in os.walk(class_path):
                 for f in files:
                     if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
-                        sample = {"class": class_name, "data": os.path.join(root, f)}
-                        if self.calculate_bboxes and self.model is not None:
-                            sample["bboxes"] = self._compute_image_bboxes(sample["data"])
+                        full_path = os.path.join(root, f)
+                        sample = {"class": class_name, "data": full_path}
+
+                        if self.calculate_bboxes:
+                            sample["bboxes"] = self._compute_image_bboxes(full_path)
+
                         samples.append(sample)
+
         random.shuffle(samples)
         self.data = samples
 
+    # ------------------------------------------------------------------
+    # Choose between model or fallback methods
+    # ------------------------------------------------------------------
     def _compute_image_bboxes(self, image_path: str) -> List[Dict[str, Any]]:
+        if self.model is not None:
+            return self._compute_bboxes_with_model(image_path)
+        else:
+            return self._compute_bboxes_fallback(image_path)
+
+    # ------------------------------------------------------------------
+    def _compute_bboxes_with_model(self, image_path: str):
+        """Handles model inference + AOI rescaling."""
         area_x, area_y = self.config.get_area_of_interest_size()
-        detections_out: List[Dict[str, Any]] = []
+        detections_out = []
+
         try:
             preds = self.model.process(image_path)
-            # get original image size
             img_w, img_h = _image_load_size(image_path)
-            # scale image to AOI size: assume ImageStim uses size=(area_x,area_y)
-            sx = area_x / float(img_w)
-            sy = area_y / float(img_h)
-            for det in preds:
-                class_name, conf, box = det[0], float(det[1]), det[2]
-                x_min, y_min, x_max, y_max = box
-                # map model coords (image top-left origin) -> AOI top-left sized coords
-                x_min_a = x_min * sx
-                x_max_a = x_max * sx
-                y_min_a = y_min * sy
-                y_max_a = y_max * sy
-                # convert to center-origin bbox
-                bbox_centered = _to_centered_bbox_from_tl(x_min_a, y_min_a, x_max_a, y_max_a, area_x, area_y)
+            sx, sy = area_x / img_w, area_y / img_h
+
+            for class_name, conf, (x_min, y_min, x_max, y_max) in preds:
                 detections_out.append({
                     "class": class_name,
-                    "conf": conf,
-                    "bbox": bbox_centered
+                    "conf": float(conf),
+                    "bbox": _to_centered_bbox_from_tl(
+                        x_min * sx, y_min * sy,
+                        x_max * sx, y_max * sy,
+                        area_x, area_y
+                    )
                 })
+
         except Exception as e:
-            self.logger.error(f"Error computing image bboxes: {e}")
+            self.logger.error(f"Error in model detection: {e}")
+
         return detections_out
 
+    # ------------------------------------------------------------------
+    # Fallback detection (grid, superpixel, saliency)
+    # ------------------------------------------------------------------
+    def _compute_bboxes_fallback(self, image_path: str):
+        method = self.default_detector
+
+        if method == "grid":
+            return self._detect_grid(image_path)
+        elif method == "superpixel":
+            return self._detect_superpixels(image_path)
+        elif method == "saliency":
+            return self._detect_saliency(image_path)
+
+        self.logger.error(f"Unknown fallback detection method '{method}'. Returning empty list.")
+        return []
+
+    # ------------------------------------------------------------------
+    # GRID fallback
+    # ------------------------------------------------------------------
+    def _detect_grid(self, image_path: str, grid_x: int = 3, grid_y: int = 3):
+        area_x, area_y = self.config.get_area_of_interest_size()
+        cell_w = area_x / grid_x
+        cell_h = area_y / grid_y
+
+        detections = []
+        for i in range(grid_x):
+            for j in range(grid_y):
+                x_min, y_min = i * cell_w, j * cell_h
+                x_max, y_max = x_min + cell_w, y_min + cell_h
+
+                detections.append({
+                    "class": "grid",
+                    "conf": 1.0,
+                    "bbox": _to_centered_bbox_from_tl(
+                        x_min, y_min, x_max, y_max,
+                        area_x, area_y
+                    )
+                })
+        return detections
+
+    # ------------------------------------------------------------------
+    # SUPERPIXEL fallback
+    # ------------------------------------------------------------------
+    def _detect_superpixels(self, image_path: str, n_segments: int = 50):
+        from skimage.segmentation import slic
+        from skimage.io import imread
+        import numpy as np
+
+        area_x, area_y = self.config.get_area_of_interest_size()
+        img = imread(image_path)
+        h, w = img.shape[:2]
+
+        segments = slic(img, n_segments=n_segments, compactness=10)
+        detections = []
+
+        for seg_id in np.unique(segments):
+            ys, xs = np.where(segments == seg_id)
+            x_min, x_max = xs.min(), xs.max()
+            y_min, y_max = ys.min(), ys.max()
+
+            detections.append({
+                "class": "superpixel",
+                "conf": 1.0,
+                "bbox": _to_centered_bbox_from_tl(
+                    x_min * (area_x / w),
+                    y_min * (area_y / h),
+                    x_max * (area_x / w),
+                    y_max * (area_y / h),
+                    area_x, area_y
+                )
+            })
+
+        return detections
+
+    # ------------------------------------------------------------------
+    # SALIENCY fallback
+    # ------------------------------------------------------------------
+    def _detect_saliency(self, image_path: str, threshold: float = 0.6):
+        import cv2
+        import numpy as np
+
+        area_x, area_y = self.config.get_area_of_interest_size()
+
+        img = cv2.imread(image_path)
+        h, w = img.shape[:2]
+
+        sal = cv2.saliency.StaticSaliencyFineGrained_create()
+        success, sal_map = sal.computeSaliency(img)
+        sal_bin = (sal_map > threshold).astype(np.uint8)
+
+        contours, _ = cv2.findContours(sal_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        detections = []
+        for cnt in contours:
+            x_min, y_min, width, height = cv2.boundingRect(cnt)
+            x_max = x_min + width
+            y_max = y_min + height
+
+            detections.append({
+                "class": "saliency",
+                "conf": 1.0,
+                "bbox": _to_centered_bbox_from_tl(
+                    x_min * (area_x / w),
+                    y_min * (area_y / h),
+                    x_max * (area_x / w),
+                    y_max * (area_y / h),
+                    area_x, area_y
+                )
+            })
+
+        return detections
+
+    # ------------------------------------------------------------------
+    # Drawing
+    # ------------------------------------------------------------------
     def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Draw image to window (scaled to area_x x area_y) and return detections (if enabled).
-        Returned dict contains 'image_bboxes' list (empty if not computed).
-        """
         area_x, area_y = self.config.get_area_of_interest_size()
         img_path = sample["data"]
+
         stim = visual.ImageStim(win=window, image=img_path, size=(area_x, area_y), pos=(0, 0))
         stim.draw()
         window.flip()
 
-        bboxes = sample.get("bboxes") if ("bboxes" in sample and sample["bboxes"] is not None) else []
-        # If model exists but sample didn't precompute, compute now
-        if self.calculate_bboxes and self.model is not None and not bboxes:
+        bboxes = sample.get("bboxes", [])
+        if self.calculate_bboxes and not bboxes:
             bboxes = self._compute_image_bboxes(img_path)
+
         return {"image_bboxes": bboxes}
 
 
@@ -327,8 +466,8 @@ class TimeSeriesDataset(CustomDataset):
         self._load_data()
 
     def _load_data(self):
-        cfg = self.config.get_dataset_timeseries_config()
-        file_path = cfg["path"]
+        cfg = self.config.get_time_series_dataset_config()
+        file_path = self.dataset_path
         label_col = cfg["label_column_name"]
         df = pd.read_csv(file_path)
         cols = df.columns.tolist()

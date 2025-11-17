@@ -11,7 +11,7 @@ from .utils import gui, eyetracker
 from .utils.voice import VoiceRecorder
 from .utils.custom_logger import CustomLogger
 from .configs.custom_config import CustomConfig
-from .datasets.custom_dataset import TextDataset, ImageDataset
+from .datasets.custom_dataset import TextDataset, ImageDataset, TimeSeriesDataset
 
 
 LOGGER = None
@@ -117,9 +117,11 @@ def main(config, loop_count, eyetracker_config_file,
     until the user presses Ctrl+C.
     """
     
-    if config.get_dataset_text_config():
+    if config.dataset_type == "text":
         dataset = TextDataset(config)
-    else:
+    elif config.dataset_type == "time_series":
+        dataset = TimeSeriesDataset(config)
+    elif config.dataset_type == "image":
         dataset = ImageDataset(config)
     monitor, window, buttons = None, None, None
 
@@ -149,6 +151,7 @@ def main(config, loop_count, eyetracker_config_file,
     if enable_psychopy:
         intro_text = config.get_instructions_config()["intro"]
         gui.show_instructions(window, intro_text)
+        window.winHandle.activate()
 
     # Detect if this is a MouseGaze tracker
     iohub_config = CustomConfig.read_config(eyetracker_config_file)
