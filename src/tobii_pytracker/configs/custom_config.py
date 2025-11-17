@@ -22,7 +22,6 @@ class CustomConfig:
         self.get_monitor_config()
         self.get_button_config()
         self.get_output_config()
-        self.get_model_config()
         self.get_instructions_config()
         
  
@@ -190,9 +189,9 @@ class CustomConfig:
         except ValueError as e:
             raise ValueError(f"Invalid output configuration: {e}")
 
-    def get_model_config(self):
+    def get_bbox_model_config(self):
         try:
-            model_config = self.config["model"]
+            model_config = self.config["bbox_model"]
 
             required_fields = ["folder", "module", "class"]
             for field in required_fields:

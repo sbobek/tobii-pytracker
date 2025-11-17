@@ -18,7 +18,7 @@ LOGGER = None
 
 
 def main(config, loop_count, eyetracker_config_file,
-         enable_eyetracker, enable_model, enable_voice,
+         enable_eyetracker, enable_voice,
          raw_data, enable_psychopy):
     """
     Main execution function for the experiment or data recording session.
@@ -50,10 +50,6 @@ def main(config, loop_count, eyetracker_config_file,
         If True, launches the eye-tracker using `launchHubServer()` and records
         gaze or raw samples.
 
-    enable_model : bool
-        If True, initializes a custom model (image/text prediction) and applies
-        it to each trial or data item.
-
     enable_voice : bool
         If True, records voice input during each trial or in headless mode.
 
@@ -80,7 +76,7 @@ def main(config, loop_count, eyetracker_config_file,
     - `data.csv` (PsychoPy mode):
         Contains trial-specific data with the following columns:
             'screenshot_file', 'input_data', 'classification', 'user_classification',
-            'gaze_data', 'model_prediction', 'voice_file', 'voice_start_timestamp'
+            'gaze_data', 'objects_bboxes', 'voice_file', 'voice_start_timestamp'
     - `raw_stream.csv` (Headless mode):
         Contains timestamped raw eye-tracker samples when `enable_psychopy=False`
         and `enable_eyetracker=True`.
@@ -138,18 +134,7 @@ def main(config, loop_count, eyetracker_config_file,
     buffer, last_event_id = {}, 0
     if enable_eyetracker:
         io, tracker = eyetracker.launch_hub_server(eyetracker_config_file, window if enable_psychopy else None)
-
-    # --- Initialize custom model ---
-    model = None
-    if enable_model:
-        try:
-            cfg = config.get_model_config()
-            model = getattr(
-                importlib.import_module(f"{cfg['folder']}.{cfg['module']}"),
-                cfg['class']
-            )(config, dataset)
-        except (ImportError, AttributeError) as e:
-            LOGGER.error(f"Error loading custom model: {e}")
+ 
 
     # --- Output setup ---
     output_config = config.get_output_config()
@@ -175,7 +160,7 @@ def main(config, loop_count, eyetracker_config_file,
         with open(output_file, "w", newline='', encoding='utf-8') as csvfile:
             fieldnames = [
                 'screenshot_file', 'input_data', 'classification', 'user_classification',
-                'gaze_data', 'model_prediction', 'voice_file', 'voice_start_timestamp'
+                'gaze_data', 'objects_bboxes', 'voice_file', 'voice_start_timestamp'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_MINIMAL, delimiter=';')
             writer.writeheader()
@@ -215,10 +200,10 @@ def main(config, loop_count, eyetracker_config_file,
                 if i == loop_count:
                     break
 
+                objects_bboxes = {}
                 data = sample['data']
                 classification = sample['class'].lower()
-                # screenshot_path = gui.draw_window(config, window, data, dataset.is_text, buttons, focus_time, output_folder)
-                screenshot_path, bboxes = gui.draw_window(config, 
+                screenshot_path, objects_bboxes = gui.draw_window(config, 
                                             window,
                                             sample,
                                             dataset,
@@ -280,10 +265,6 @@ def main(config, loop_count, eyetracker_config_file,
                         # --- Check button presses ---
                         for rect, text, label in buttons:
                             if mouse.isPressedIn(rect) and (current_time - last_click_time) > debounce_time:
-                                model_prediction = []
-                                if enable_model:
-                                    model_prediction = model.process(screenshot_path) if not dataset.is_text else model.process(data)
-
                                 user_classification = text.text
 
                                 if enable_voice and voice_thread:
@@ -296,7 +277,7 @@ def main(config, loop_count, eyetracker_config_file,
                                     'classification': classification,
                                     'user_classification': user_classification.lower(),
                                     'gaze_data': gaze_data,
-                                    'model_prediction': model_prediction,
+                                    'objects_bboxes': objects_bboxes,
                                     'voice_file': voice_filename,
                                     'voice_start_timestamp': round(voice_start_time, 4) if voice_start_time else None
                                 }
@@ -354,7 +335,6 @@ def cli():
 
     # Boolean flags
     parser.add_argument('--enable_eyetracker', action='store_true', help='Launch script with launchHubServer (needs connected eyetracker if set)')
-    parser.add_argument('--enable_model', action='store_true', help='Extend processing for custom model predictions (only for images)')
     parser.add_argument('--enable_voice', action='store_true', help='Enable voice recording and processing')
     parser.add_argument('--raw_data', action='store_true', help='Record full Tobii raw samples instead of filtered gaze position')
     parser.add_argument('--disable_psychopy', action='store_true', help='Run headless (no GUI) and continuously record gaze + voice until stopped')
@@ -374,7 +354,6 @@ def cli():
         loop_count=args.loop_count,
         eyetracker_config_file=args.eyetracker_config_file,
         enable_eyetracker=args.enable_eyetracker,
-        enable_model=args.enable_model,
         enable_voice=args.enable_voice,
         raw_data=args.raw_data,
         enable_psychopy=not args.disable_psychopy

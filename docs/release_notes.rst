@@ -1,7 +1,7 @@
 Release notes
 ==============
 
-0.1.2 (2025-11-11)
+0.1.2 (2025-11-17)
 -------------
 * Fixed documentation of command-line options
 * Added MouseEyetracker emulator, for testing without Tobii hardware
@@ -12,6 +12,8 @@ Release notes
 * Added full set of readings from eyetracker (not limited to average pupil size, or average gaze point)
 * Added HeatMapAnalyzer, FixationAnalyzer, FocusMapAnalyzer, SaccadeAnalyzer complete code
 * Fixed issues with pyglet requirements on Windows
+* Moved bounding box detectiona nd stimulus drawing to Dataset class.
+* Removed enable_mode -- it is now handled by optional configuration field.
 
 
 0.1.1 (2025-10-28)

@@ -55,26 +55,26 @@ The example of the main configuration file is shown below:
         - 750
 
     output:
-    folder: output
+      folder: output
 
-    model:
-    folder: models
-    module: custom_yolo_model
-    class: CustomYoloModel
+    bbox_model:
+      folder: custom_runtime_models
+      module: custom_yolo_model
+      class: CustomYoloModel
 
     instructions:
-    intro:
-        - "Welcome to the study!"
-        - ""
-        - "In this experiment, you will see a series of images or text samples."
-        - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
-        - ""
-        - "Press SPACE to begin."
-    outro:
-        - "Thank you for participating in this study!"
-        - ""
-        - "Your responses and recordings have been saved."
-        - "You may now close the window or press ESC to exit."
+      intro:
+          - "Welcome to the study!"
+          - ""
+          - "In this experiment, you will see a series of images or text samples."
+          - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
+          - ""
+          - "Press SPACE to begin."
+      outro:
+          - "Thank you for participating in this study!"
+          - ""
+          - "Your responses and recordings have been saved."
+          - "You may now close the window or press ESC to exit."
 
 
 Below is a detailed explanation of each section and its parameters, along with examples.
@@ -255,17 +255,18 @@ Defines where experimental results and recordings are saved.
 
 ---
 
-4. ``model``
+4. ``bbox_model``
 ~~~~~~~~~~~~~~~~
 
 Specifies the model used in the experiment, including its location and class definitions.
+Every dataset has build-in bounding box detection mode, so this filed is optional and can be omitted.
 
 **Example:**
 
 .. code-block:: yaml
 
-    model:
-      folder: runtime_models
+    bbox_model:
+      folder: custom_runtime_models
       module: custom_yolo_model
       class: CustomYoloModel
 
@@ -304,7 +305,7 @@ By inheriting from ``CustomModel`` and implementing its methods, your model can 
 
 To create your own model:
 
-1. Create a new Python file within the ``runtime_models/`` directory (e.g., ``runtime_models/my_custom_model.py``).  
+1. Create a new Python file within the ``custom_runtime_models/`` directory  in folder where you run a script (e.g., ``custom_runtime_models/my_custom_model.py``).  
 2. Import the ``CustomModel`` base class:
 
    .. code-block:: python

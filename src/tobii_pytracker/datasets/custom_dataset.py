@@ -237,7 +237,7 @@ class ImageDataset(CustomDataset):
         if self.calculate_bboxes and self.model is None:
             # try load from config (same pattern as your code)
             try:
-                cfg = self.config.get_model_config()
+                cfg = self.config.get_bbox_model_config()
                 ModelClass = getattr(importlib.import_module(f"{cfg['folder']}.{cfg['module']}"), cfg['class'])
                 self.model = ModelClass(config, self)  # model must implement process(path)
             except Exception as e:

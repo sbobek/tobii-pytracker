@@ -1,11 +1,15 @@
 dataset:
-  path: datasets/pdt
-  # text:
-  #   label_column_name: sentiment
-  #   text_column_name: content
-  #   color: white
-  #   background_color: black
-  # path: datasets/twitter/twitter_validation.csv
+  # path: datasets/pdt
+  text:
+    label_column_name: sentiment
+    text_column_name: content
+    color: white
+    background_color: black
+  path: datasets/twitter/twitter_validation.csv
+
+  # time_series:
+  #   label_column_name: anomaly
+  # path: datasets/ecg200/ecg200.csv
 
 display:
   monitor: 
@@ -35,10 +39,10 @@ display:
 output:
   folder: output
 
-model:
-  folder: custom_runtime_models
-  module: custom_yolo_model
-  class: CustomYoloModel
+# bbox_model:
+#   folder: custom_runtime_models
+#   module: custom_yolo_model
+#   class: CustomYoloModel
 
 instructions:
   intro:
