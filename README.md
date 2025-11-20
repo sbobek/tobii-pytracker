@@ -69,7 +69,6 @@ The framework integrates multiple data modalities commonly used as inputs for ML
 - `--config_file` - Path to YAML script config file _(default: configs/config.yaml)_
 - `--eyetracker_config_file` - Path to YAML eyetracker config file _(default: configs/eyetracker_config.yaml)_
 - `--enable_eyetracker` - Launch script with launchHubServer (requires connected eyetracker) _(default: False)_
-- `--enable_model` - Extend processing for custom YOLO model predictions (only for images) _(default: False)_
 - `--enable_voice` - Start voice recording for Think-Aloud Protocol _(default: False)_
 - `--raw_data` - Record full Tobii raw samples instead of filtered gaze positions _(default: False)_
 - `--disable_psychopy` - Run headless (no GUI) and continuously record gaze + voice until stopped _(default: False)_
@@ -109,6 +108,11 @@ Different datasets can be specified in the config file that will be processed an
 
 ## Custom Model
 
+The custom model for detecting bounding boxes fro possible area of interest is optional. 
+Every dataset class has its own bounding-box detection method (words for text, bins dor time-series, superpixels for images).
+However, you might want to change it with your custom implementation.
+It is desired, when you want to get bounding box from external model at the runtime, because for instance screenshots have format or size which is not used by you detection model and cannot be use post-hoc.
+
 The `CustomModel` class (located in `runtime_models/custom_model.py`) serves as an abstract base class. It defines the essential methods that any custom model implementation must provide. By inheriting from `CustomModel` and implementing these methods, your custom model can seamlessly interact with the rest of the toolkit:
 
 - `prepare_model(self)`: Load and prepare model for prediction
@@ -118,7 +122,7 @@ The `CustomModel` class (located in `runtime_models/custom_model.py`) serves as 
 ### Creating Your Own Model Modules
 To create your own model module:
 
-1. Create a new Python file within the specified directory (e.g., `runtime_models/my_custom_model.py`).
+1. Create a new Python file within the specified directory (e.g., `custom_runtime_models/my_custom_model.py`).
 
 2. Import the CustomModel class:
 ```python
@@ -188,7 +192,8 @@ display:
 output:
   folder: folder
   file: file
-model:
+
+bbox_model:
   folder: folder
   module: module
   class: class

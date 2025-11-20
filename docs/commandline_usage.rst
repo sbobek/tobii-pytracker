@@ -46,9 +46,6 @@ Boolean Flags
 - ``--enable_eyetracker``  
   Launches the Tobii eye-tracker using PsychoPy ioHub. Requires a connected device.  
 
-- ``--enable_model``  
-  Activates a custom model for predictions on each trial (image or text).  
-
 - ``--enable_voice``  
   Records voice during trials.  
 
@@ -75,11 +72,11 @@ Example Usage
 
     tobii-pytracker 
 
-1. **Run a GUI experiment with eye-tracker, model, and voice recording**:
+1. **Run a GUI experiment with eye-tracker, and voice recording**:
 
 .. code-block:: bash
 
-    tobii-pytracker --enable_eyetracker --enable_model --enable_voice
+    tobii-pytracker --enable_eyetracker --enable_voice
 
 2. **Run a headless session recording raw gaze data continuously**:
 
@@ -111,7 +108,7 @@ Depending on mode:
       - ``classification`` – ground truth label
       - ``user_classification`` – user-selected label
       - ``gaze_data`` – gaze positions or raw samples
-      - ``model_prediction`` – prediction from custom model
+      - ``objects_bboxes`` – prediction from custom model
       - ``voice_file`` – recorded voice filename
       - ``voice_start_timestamp`` – timestamp of voice recording start
 

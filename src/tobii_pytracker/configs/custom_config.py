@@ -1,74 +1,140 @@
 import os
 import yaml
-
 class CustomConfig:
     def __init__(self, filename):
         self.config = self.read_config(filename)
+        self.dataset_type = None  # set later
+        self.dataset_path = None
         self.check_config()
 
+    # -------------------------
+    # YAML LOADING
+    # -------------------------
     @staticmethod
     def read_config(filename):
         if not os.path.exists(filename):
             raise FileNotFoundError(f"Configuration file '{filename}' not found.")
+        with open(filename, "r") as f:
+            return yaml.safe_load(f)
 
-        with open(filename, "r") as file:
-            config = yaml.safe_load(file)
-
-        return config
-
+    # -------------------------
+    # MASTER CHECK
+    # -------------------------
     def check_config(self):
-        self.get_dataset_config()
-        self.get_dataset_text_config()
+        self.detect_dataset_type()
+
+        if self.dataset_type == "image":
+            self.get_image_dataset_config()
+        elif self.dataset_type == "text":
+            self.get_text_dataset_config()
+        elif self.dataset_type == "time_series":
+            self.get_time_series_dataset_config()
+        
+        self.dataset_path = self.config["dataset"][self.dataset_type]["path"]
+
         self.get_monitor_config()
         self.get_button_config()
         self.get_output_config()
-        self.get_model_config()
         self.get_instructions_config()
-        
- 
-    def get_dataset_config(self):
-        try:
-            dataset_config = self.config["dataset"]
 
-            if not isinstance(dataset_config, dict):
-                raise ValueError("Dataset configuration must be a dictionary.")
+    def get_dataset_path(self):
+        return self.dataset_path
 
-            required_fields = ["path"]
-            for field in required_fields:
-                if field not in dataset_config:
-                    raise KeyError(f"Missing required dataset field: {field}")
+    # ------------------------------------------------------
+    #  DATASET TYPE DETECTION
+    # ------------------------------------------------------
+    def detect_dataset_type(self):
+        if "dataset" not in self.config:
+            raise KeyError("Missing 'dataset' section in configuration file.")
 
-                if field == "path" and not isinstance(dataset_config[field], str):
-                    raise ValueError("'path' must be a string.")
+        dataset_section = self.config["dataset"]
+        if not isinstance(dataset_section, dict):
+            raise ValueError("'dataset' must be a dictionary.")
 
-            return dataset_config
+        valid_types = {"image", "text", "time_series"}
+        present = valid_types.intersection(dataset_section.keys())
 
-        except KeyError as e:
-            raise KeyError(f"Invalid or missing dataset configuration: {e}")
-        except ValueError as e:
-            raise ValueError(f"Invalid dataset configuration: {e}")
+        if not present:
+            raise KeyError("dataset must contain one of: image, text, time_series")
 
-    def get_dataset_text_config(self):
-        dataset_config = self.get_dataset_config()
-        if "text" in dataset_config:
-            try:
-                dataset_text_config = dataset_config["text"]
+        if len(present) > 1:
+            raise ValueError("Only one dataset type (image/text/time_series) can be defined at once.")
 
-                required_fields = ["label_column_name", "text_column_name"]
-                for field in required_fields:
-                    if field not in dataset_config["text"]:
-                        raise KeyError(f"Missing required dataset text field: {field}")
+        self.dataset_type = present.pop()
 
-                    if not isinstance(dataset_config["text"][field], str):
-                        raise ValueError(f"{field} must be a string.")
+    # ------------------------------------------------------
+    #  IMAGE DATASET
+    # ------------------------------------------------------
+    def get_image_dataset_config(self):
+        if self.dataset_type != "image":
+            return None
 
-                return dataset_text_config
+        cfg = self.config["dataset"]["image"]
 
-            except KeyError as e:
-                raise KeyError(f"Invalid or missing dataset text configuration: {e}")
-            except ValueError as e:
-                raise ValueError(f"Invalid dataset text configuration: {e}")
+        # required
+        if "path" not in cfg:
+            raise KeyError("Missing required image dataset field: path")
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for image dataset.")
 
+        # optional bbox_model
+        if "bbox_model" in cfg:
+            allowed = ["grid", "superpixel", "saliency"]
+            if cfg["bbox_model"] not in allowed:
+                raise ValueError(f"image bbox_model must be one of: {allowed}")
+
+        return cfg
+
+    # ------------------------------------------------------
+    #  TEXT DATASET
+    # ------------------------------------------------------
+    def get_text_dataset_config(self):
+        if self.dataset_type != "text":
+            return None
+
+        cfg = self.config["dataset"]["text"]
+
+        required = ["label_column_name", "text_column_name", "path"]
+        for r in required:
+            if r not in cfg:
+                raise KeyError(f"Missing required text dataset field: {r}")
+
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for text dataset.")
+
+        # optional bbox_model
+        if "bbox_model" in cfg:
+            allowed = ["word", "line", "sentence"]
+            if cfg["bbox_model"] not in allowed:
+                raise ValueError(f"text bbox_model must be one of: {allowed}")
+
+        return cfg
+
+    # ------------------------------------------------------
+    #  TIME-SERIES DATASET
+    # ------------------------------------------------------
+    def get_time_series_dataset_config(self):
+        if self.dataset_type != "time_series":
+            return None
+
+        cfg = self.config["dataset"]["time_series"]
+
+        required = ["label_column_name", "path"]
+        for r in required:
+            if r not in cfg:
+                raise KeyError(f"Missing required time-series dataset field: {r}")
+
+        if not isinstance(cfg["path"], str):
+            raise ValueError("'path' must be a string for time_series dataset.")
+
+        # optional bbox_model
+        if "bbox_model" in cfg:
+            allowed = ["sample", "window"]
+            if cfg["bbox_model"] not in allowed:
+                raise ValueError(f"time_series bbox_model must be one of: {allowed}")
+
+        return cfg
+    
     def get_monitor_config(self):
         try:
             monitor_config = self.config["display"]["monitor"]
@@ -190,9 +256,9 @@ class CustomConfig:
         except ValueError as e:
             raise ValueError(f"Invalid output configuration: {e}")
 
-    def get_model_config(self):
+    def get_bbox_model_config(self):
         try:
-            model_config = self.config["model"]
+            model_config = self.config["bbox_model"]
 
             required_fields = ["folder", "module", "class"]
             for field in required_fields:
