@@ -7,7 +7,7 @@ Tobii-Pytracker uses a YAML configuration file to set up various parameters for 
 
 You need to prepare two separate configuration files:
 1. Main configuration file (e.g., `config.yaml`): This file contains general settings for the experiment, including monitor details, GUI options, areas of interest, and output folder specifications.
-2. Eyetracker configuration file (e.g., `eyetracker_config.yaml`): This file includes settings specific to the Tobii eye tracker, such as sampling rate, data streams to record, and calibration options.
+2. Eyetracker configuration file (e.g., `eyetracker_config.yaml`): This file includes settings specific to the Tobii eye tracker, such as sampling rate, data streams to record, and calibration options. For details on the calibration options, refer to the :ref:`calibration section <calibration>`.
 
 The default version of the files can be found in the `configs/` directory of the Tobii-Pytracker repository. You can copy these files and modify them according to your experimental requirements.
 
