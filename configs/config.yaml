@@ -1,19 +1,23 @@
 dataset:
-  image:
-    # bbox_model:  grid | superpixel | saliency
-    path: datasets/pdt
+  # image:
+    # # bbox_model:  grid | superpixel | saliency
+    # path: datasets/pdt
+
   # text:
   #   label_column_name: sentiment
-  #   text_column_name: content
+  #   text_column_name: selected_text
   #   color: white
   #   background_color: black
   #   #bbox_model: word|line|sentence
-  #   path: datasets/twitter/twitter_validation.csv
+  #   path: datasets/twitter/tweets.csv
 
-  # time_series:
-  #   label_column_name: anomaly
-  #   bbox_model:  sample|window
-  #   path: datasets/ecg200/ecg200.csv
+  time_series:
+      # Dataset: ECG200 (UCR Time Series Archive)
+      # License: CC BY 4.0
+      # Source: https://www.timeseriesclassification.com
+    label_column_name: class
+    # bbox_model:  sample|window
+    path: datasets/ecg/ecg200.csv
 
 display:
   monitor: 

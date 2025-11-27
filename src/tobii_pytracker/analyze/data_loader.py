@@ -216,6 +216,7 @@ class DataLoader:
         for s in self.subjects:
             df = self._load_data(s)
             data[s] = self._flatten_gaze_data(df, s) if flatten else df
+            data = pd.concat(data.values(), ignore_index=True) if flatten else data
         return data
 
     def get_subjects(self) -> List[str]:
