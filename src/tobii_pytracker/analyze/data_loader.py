@@ -68,7 +68,7 @@ class DataLoader:
             except json.JSONDecodeError:
                 try:
                     # Fall back to Python literal (ast.literal_eval for safety)
-                    return ast.literal_eval(gaze_field)
+                    return ast.literal_eval(gaze_field.replace("nan", "None"))
                 except Exception:
                     LOGGER.warning("Failed to parse gaze_data field; returning empty list.")
                     return []

@@ -64,6 +64,14 @@ class CustomDataset:
     @property
     def is_text(self) -> bool:
         return isinstance(self, TextDataset)
+    
+    @property
+    def is_time_series(self) -> bool:
+        return isinstance(self, TimeSeriesDataset)
+    
+    @property
+    def is_image(self) -> bool:
+        return isinstance(self, ImageDataset)
 
     def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError
@@ -96,8 +104,8 @@ class TextDataset(CustomDataset):
         text_col = self.text_cfg["text_column_name"]
         self.classes = [str(c).lower() for c in df[label_col].unique()]
         self.classes.append("none")
-        self.data = [{"class": str(r[label_col]).lower(), "data": str(r[text_col])}
-                     for _, r in df.iterrows()]
+        self.data = [{"class": str(r[label_col]).lower(), "data": str(r[text_col]), "id": str(r[text_col])[:20].replace(" ","_")}
+                     for _, r in df.iterrows()]  # add short id
 
     def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -274,7 +282,7 @@ class ImageDataset(CustomDataset):
                 for f in files:
                     if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
                         full_path = os.path.join(root, f)
-                        sample = {"class": class_name, "data": full_path}
+                        sample = {"class": class_name, "data": full_path, "id": os.path.basename(full_path)}
 
                         if self.calculate_bboxes:
                             sample["bboxes"] = self._compute_image_bboxes(full_path)
@@ -478,7 +486,7 @@ class TimeSeriesDataset(CustomDataset):
         samples = []
         for _, row in df.iterrows():
             series = row[ts_cols].astype(float).to_numpy()
-            samples.append({"class": row[label_col], "data": series, "index": row[index_col]})
+            samples.append({"class": row[label_col], "data": series, "index": row[index_col], "id": f"{row[index_col]}"})
         self.data = samples
 
     def _compute_timeseries_bboxes_from_series(self, series: np.ndarray) -> List[Dict[str, Any]]:
@@ -575,7 +583,7 @@ class TimeSeriesDataset(CustomDataset):
         # Build vertices as list of (x,y) pairs
         verts = [(float(x), float(y)) for x, y in zip(xs, ys)]
         # Slight smoothing: join with line segments
-        line = visual.ShapeStim(win=window, vertices=verts, closeShape=False, lineWidth=2.0, lineColor='black', fillColor=None)
+        line = visual.ShapeStim(win=window, vertices=verts, closeShape=False, lineWidth=2.0, lineColor='white', fillColor=None)
         line.draw()
         window.flip()
 
