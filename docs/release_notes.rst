@@ -1,6 +1,9 @@
 Release notes
 ==============
 
+0.1.3 (2025-12-02)
+* Added screen display number configuration option to support multi-monitor setups.
+
 0.1.2 (2025-11-17)
 -------------
 * Fixed documentation of command-line options

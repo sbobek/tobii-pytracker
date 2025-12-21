@@ -19,7 +19,8 @@ We tested software with Psychopy versions 2024.1.4 up to 2025.1.1.
 The software works perfectly on all these versions, but there are some dependencies that need to be fulfilled (read the rest of troubleshooting for more details).
 If you encounter any issues related to Psychopy, please ensure that you have the correct version installed.
 
-The only issue that we found is with the latest Psychopy version `>= 2025.1.1` where in case of mouse eyetracker emulation, the calibration does not start. However, calibration is not needed in case of mouse tracker, so it is only the error that can be ignored.
+The only issue that we found is with the latest Psychopy version `>= 2025.1.1` where the calibration does not start. 
+However, calibration can be done externally using Tobii Pro Eyetracker Manager (free software) software, so this does not block the usage of Tobii-Pytracker.
 
 Ultralytics version issues
 ---------------------------
