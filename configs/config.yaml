@@ -16,15 +16,15 @@ dataset:
       # License: CC BY 4.0
       # Source: https://www.timeseriesclassification.com
     label_column_name: class
-    # bbox_model:  sample|window
+    bbox_model:  sample #|window
     path: datasets/ecg/ecg200.csv
 
 display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 1920
-      - 1200
+      - 3440
+      - 1440
     width: 35
     distance: 60
     display_number: 0

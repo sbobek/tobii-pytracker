@@ -75,6 +75,30 @@ class DataLoader:
 
         return []
 
+
+    def _parse_bbox_data(self, bbox_field):
+            """
+            Parse bbox_field field (string or list) into a list of dicts.
+
+            Handles cases where bbox_field is stored as a stringified list of dicts.
+            """
+            if isinstance(bbox_field, list):
+                return bbox_field
+
+            if isinstance(bbox_field, str):
+                try:
+                    # Try JSON first (if it's JSON formatted)
+                    return json.loads(bbox_field)
+                except json.JSONDecodeError:
+                    try:
+                        # Fall back to Python literal (ast.literal_eval for safety)
+                        return ast.literal_eval(bbox_field.replace("nan", "None"))
+                    except Exception:
+                        LOGGER.warning("Failed to parse bbox_field field; returning empty list.")
+                        return []
+
+            return []
+
     
     def _flatten_gaze_data(self, df: pd.DataFrame, set_name: str) -> pd.DataFrame:
         """Flatten new gaze data (dict-based) from all slides into one long DataFrame, 
@@ -131,6 +155,7 @@ class DataLoader:
                     "classification": row.get("classification"),
                     "user_classification": row.get("user_classification"),
                     "model_prediction": row.get("model_prediction"),
+                    "objects_bboxes": self._parse_gaze_data(row.get("objects_bboxes", [])),
                     "voice_file": row.get("voice_file"),
                     "voice_start_timestamp": row.get("voice_start_timestamp"),
 
@@ -172,10 +197,13 @@ class DataLoader:
 
         row = df.iloc[index]
         gaze_data = row.get("gaze_data")
+        objects_bboxes = row.get("objects_bboxes")
 
         # Ensure gaze_data is parsed if not already a list/dict
         if isinstance(gaze_data, str):
             gaze_data = self._parse_gaze_data(gaze_data)
+        if isinstance(objects_bboxes, str):
+            objects_bboxes = self._parse_gaze_data(objects_bboxes)
 
         if flatten:
             # Reuse flatten logic — wrap row into a single-row DataFrame
@@ -191,6 +219,7 @@ class DataLoader:
                 if pd.notna(row.get("voice_file"))
                 else None
             ),
+            "objects_bboxes": objects_bboxes,
             "voice_start_timestamp": row.get("voice_start_timestamp"),
             "gaze_data": gaze_data,
             "metadata": row.to_dict(),

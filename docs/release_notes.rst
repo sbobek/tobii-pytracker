@@ -1,8 +1,9 @@
 Release notes
 ==============
 
-0.1.3 (2025-12-02)
+0.1.3 (2026-01-02)
 * Added screen display number configuration option to support multi-monitor setups.
+* Fixed parsing timeseries bounding boxes in DataLoader.
 
 0.1.2 (2025-11-17)
 -------------

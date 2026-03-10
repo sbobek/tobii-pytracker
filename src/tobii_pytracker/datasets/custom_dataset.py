@@ -600,42 +600,75 @@ from typing import Any, Dict, List
 from psychopy import visual
 
 
+# -------------------------
+# TimeSeriesDataset
+# -------------------------
 class TimeSeriesDataset(CustomDataset):
     """
-    Time series dataset: CSV rows are: index, v1, v2, ..., vN, class
+    Multi-channel time series dataset.
 
-    - Draws time series as a polyline inside AOI
-    - Computes per-window bounding boxes (center-origin)
-    - Supports optional axis, grid, ticks, labels (PsychoPy-native)
+    Layout
+    ------
+    The AOI is divided into:
+      - A left margin  (margin_left px)  : y-axis tick labels + channel name
+      - A bottom margin (margin_bottom px): x-axis tick labels
+      - The remaining rectangle is the **plot area** where data is drawn.
+
+    All bounding boxes are computed exclusively within the plot area.
+    Axis decorations (tick labels, channel names) are drawn outside it and
+    never contribute to any bbox.
+
+    Scaling
+    -------
+    All channels share the same y-axis scale so that relative magnitudes are
+    preserved (important for ECG, EEG, etc.).  The global min/max across every
+    channel is used to map values to pixels.  No per-channel normalisation is
+    performed.
+
+    Data format
+    -----------
+    CSV: first column = index, last column = label, columns in between = channels.
+
+    Bounding boxes
+    --------------
+    For each channel c and each time window w:
+        bbox covers the horizontal extent of the window and the vertical extent
+        of the data values within that window (plus a small padding so that the
+        line itself is inside the box).  The bbox is in AOI center-origin
+        pixel coordinates.
+
+    Parameters
+    ----------
+    config          : CustomConfig
+    calculate_bboxes: bool   – compute bboxes during draw_stimulus
+    window_size     : int    – number of time steps per bbox (1 = per-sample)
+    margin_left     : int    – pixels reserved on the left for axis decoration
+    margin_bottom   : int    – pixels reserved at the bottom for x-axis labels
+    line_colors     : list   – PsychoPy color strings per channel (cycles)
+    line_width      : float  – polyline width in pixels
     """
+
+    # Default decoration margins (in pixels within the AOI)
+    DEFAULT_MARGIN_LEFT   = 60
+    DEFAULT_MARGIN_BOTTOM = 40
 
     def __init__(
         self,
         config: Any,
         calculate_bboxes: bool = False,
         window_size: int = 1,
-        draw_axis: bool = True,
-        draw_grid: bool = True,
-        draw_xticks: bool = True,
-        draw_yticks: bool = True,
-        xlabel: str = "",
-        ylabel: str = "",
-        n_xticks: int = 5,
-        n_yticks: int = 5,
+        margin_left: int = DEFAULT_MARGIN_LEFT,
+        margin_bottom: int = DEFAULT_MARGIN_BOTTOM,
+        line_colors: Optional[List[str]] = None,
+        line_width: float = 2.0,
     ):
         super().__init__(config, calculate_bboxes)
-        self.window_size = max(1, int(window_size))
-
-        # drawing options
-        self.draw_axis = draw_axis
-        self.draw_grid = draw_grid
-        self.draw_xticks = draw_xticks
-        self.draw_yticks = draw_yticks
-        self.xlabel = xlabel
-        self.ylabel = ylabel
-        self.n_xticks = n_xticks
-        self.n_yticks = n_yticks
-
+        self.window_size    = max(1, int(window_size))
+        self.margin_left    = int(margin_left)
+        self.margin_bottom  = int(margin_bottom)
+        self.line_colors    = line_colors or ["white", "blue", "red", "green", "orange", "purple"]
+        self.line_width     = float(line_width)
+        self.channel_names: List[str] = []
         self._load_data()
 
     # ------------------------------------------------------------------
@@ -643,186 +676,333 @@ class TimeSeriesDataset(CustomDataset):
     # ------------------------------------------------------------------
     def _load_data(self):
         cfg = self.config.get_time_series_dataset_config()
-        file_path = self.dataset_path
+        if cfg.get("bbox_model") is not None:
+            self.calculate_bboxes=True
         label_col = cfg["label_column_name"]
-
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(self.dataset_path)
         cols = df.columns.tolist()
         index_col = cols[0]
         ts_cols = [c for c in cols[1:] if c != label_col]
-
+        self.channel_names = ts_cols  # preserve column names as channel labels
         self.classes = df[label_col].unique().tolist()
         self.classes.append("none")
-
-        samples = []
+        self.data = []
         for _, row in df.iterrows():
+            # shape: (n_timepoints, n_channels) if multi-channel, else (n_timepoints,)
             series = row[ts_cols].astype(float).to_numpy()
-            samples.append({
+            self.data.append({
                 "class": row[label_col],
-                "data": series,
+                "data": series,          # 1-D array: univariate; 2-D: multivariate
                 "index": row[index_col],
-                "id": f"{row[index_col]}",
+                "id": f"{row[index_col]}"
             })
 
-        self.data = samples
+    # ------------------------------------------------------------------
+    # Internal geometry helpers
+    # ------------------------------------------------------------------
+    def _plot_area(self, area_x: int, area_y: int) -> Tuple[float, float, float, float]:
+        """
+        Return (plot_x_min, plot_y_min, plot_x_max, plot_y_max) in TOP-LEFT pixel
+        coordinates within the AOI.
+
+        The plot area is the rectangle where data lines are drawn.
+        It excludes left and bottom decoration margins.
+        """
+        plot_x_min = float(self.margin_left)
+        plot_y_min = 0.0                             # top of AOI  (top-left origin)
+        plot_x_max = float(area_x)
+        plot_y_max = float(area_y - self.margin_bottom)
+        return plot_x_min, plot_y_min, plot_x_max, plot_y_max
+
+    def _ensure_2d(self, series: np.ndarray) -> np.ndarray:
+        """
+        Guarantee series is 2-D: shape (n_timepoints, n_channels).
+        """
+        if series.ndim == 1:
+            return series[:, np.newaxis]
+        return series
+
+    def _global_scale(self, series2d: np.ndarray) -> Tuple[float, float]:
+        """
+        Return (global_min, global_max) across ALL channels so that relative
+        magnitudes are preserved when mapping to pixels.
+        """
+        g_min = float(np.nanmin(series2d))
+        g_max = float(np.nanmax(series2d))
+        if math.isclose(g_min, g_max):
+            g_min -= 0.5
+            g_max += 0.5
+        return g_min, g_max
+
+    def _value_to_y_tl(
+        self,
+        value: float,
+        g_min: float,
+        g_max: float,
+        ch_idx: int,
+        n_channels: int,
+        plot_y_min: float,
+        plot_y_max: float,
+    ) -> float:
+        """
+        Map a data value to a top-left pixel y coordinate within the channel's
+        horizontal band.
+
+        Each channel gets an equal vertical band inside the plot area.
+        Within its band the value is scaled linearly (g_min → bottom,
+        g_max → top of band), preserving the global scale.
+        """
+        plot_h = plot_y_max - plot_y_min          # total plot height in px
+        band_h = plot_h / n_channels              # height of each channel band
+        # channel 0 occupies the top band, channel n-1 the bottom
+        band_top    = plot_y_min + ch_idx * band_h
+        band_bottom = band_top + band_h
+
+        # map value: g_max → band_top (small y = top), g_min → band_bottom
+        t = (value - g_min) / (g_max - g_min)     # 0..1, higher value = higher on screen
+        y_tl = band_bottom - t * band_h            # invert: t=1 → band_top, t=0 → band_bottom
+        return float(np.clip(y_tl, band_top, band_bottom))
+
+    def _x_positions_tl(
+        self,
+        n: int,
+        plot_x_min: float,
+        plot_x_max: float,
+    ) -> np.ndarray:
+        """
+        Return the centre x position (top-left pixel) for each of the n time
+        steps, uniformly distributed across the plot area width.
+        """
+        plot_w = plot_x_max - plot_x_min
+        return plot_x_min + (np.arange(n) + 0.5) * (plot_w / n)
+
+    def _tl_to_psychopy(
+        self,
+        x_tl: float,
+        y_tl: float,
+        area_x: int,
+        area_y: int,
+    ) -> Tuple[float, float]:
+        """Convert top-left pixel coords to PsychoPy center-origin coords."""
+        return x_tl - area_x / 2.0, area_y / 2.0 - y_tl
 
     # ------------------------------------------------------------------
-    # Bounding boxes (UNCHANGED)
+    # Bbox computation
     # ------------------------------------------------------------------
-    def _compute_timeseries_bboxes_from_series(self, series: np.ndarray) -> List[Dict[str, Any]]:
+    def _compute_timeseries_bboxes_from_series(
+        self,
+        series2d: np.ndarray,
+    ) -> List[Dict[str, Any]]:
+        """
+        Compute per-channel, per-window bounding boxes.
+
+        Each bbox tightly wraps the data values in that window for that channel,
+        restricted to the channel's vertical band within the plot area.
+        Axis decoration margins are excluded.
+
+        Returns a flat list of dicts:
+          {
+            "channel_idx": int,
+            "channel_name": str,
+            "start_idx": int,
+            "end_idx": int,
+            "bbox": {"cx", "cy", "w", "h"}   # AOI center-origin pixels
+          }
+        """
         area_x, area_y = self.config.get_area_of_interest_size()
-        n = len(series)
+        plot_x_min, plot_y_min, plot_x_max, plot_y_max = self._plot_area(area_x, area_y)
+        series2d = self._ensure_2d(series2d)
+        n, n_ch = series2d.shape
         if n == 0:
             return []
 
-        min_v, max_v = float(series.min()), float(series.max())
-        if math.isclose(min_v, max_v):
-            norm_vals = np.full_like(series, 0.5, dtype=float)
-        else:
-            norm_vals = (series - min_v) / (max_v - min_v)
+        g_min, g_max = self._global_scale(series2d)
+        xs = self._x_positions_tl(n, plot_x_min, plot_x_max)
+        bin_half_w = (plot_x_max - plot_x_min) / (2 * n)
 
-        xs = np.linspace(0, area_x, n, endpoint=False) + (area_x / (2 * n))
         bboxes_out: List[Dict[str, Any]] = []
 
-        for start in range(0, n, self.window_size):
-            end = min(start + self.window_size, n)
-            xs_window = xs[start:end]
-            ys_window = norm_vals[start:end]
+        for ch in range(n_ch):
+            ch_vals = series2d[:, ch]
+            band_h = (plot_y_max - plot_y_min) / n_ch
+            band_top    = plot_y_min + ch * band_h
+            band_bottom = band_top + band_h
 
-            x_min_px = float(xs_window.min() - (area_x / (2 * n)))
-            x_max_px = float(xs_window.max() + (area_x / (2 * n)))
+            # small vertical padding so the drawn line sits inside the bbox
+            pad_v = max(2.0, 0.01 * band_h)
 
-            y_pixels = (1.0 - ys_window) * area_y
-            y_min_px = float(y_pixels.min())
-            y_max_px = float(y_pixels.max())
+            for start in range(0, n, self.window_size):
+                end = min(start + self.window_size, n)
 
-            pad_v = max(1.0, 0.02 * area_y)
-            y_min_px = max(0.0, y_min_px - pad_v)
-            y_max_px = min(area_y - 1.0, y_max_px + pad_v)
+                # x extent: edges of the outermost bins in the window
+                x_min_px = float(xs[start])   - bin_half_w
+                x_max_px = float(xs[end - 1]) + bin_half_w
+                x_min_px = max(plot_x_min, x_min_px)
+                x_max_px = min(plot_x_max, x_max_px)
 
-            x_min_px = max(0.0, x_min_px)
-            x_max_px = min(area_x - 1.0, x_max_px)
+                # y extent: actual data range mapped to top-left pixels
+                window_vals = ch_vals[start:end]
+                y_tl_values = np.array([
+                    self._value_to_y_tl(v, g_min, g_max, ch, n_ch, plot_y_min, plot_y_max)
+                    for v in window_vals
+                ])
+                y_min_px = float(y_tl_values.min()) - pad_v  # smaller y = higher on screen
+                y_max_px = float(y_tl_values.max()) + pad_v
+                # clamp to the channel's band (never bleed into neighbour bands)
+                y_min_px = max(band_top,    y_min_px)
+                y_max_px = min(band_bottom, y_max_px)
 
-            bbox_centered = _to_centered_bbox_from_tl(
-                x_min_px, y_min_px,
-                x_max_px, y_max_px,
-                area_x, area_y
-            )
-
-            bboxes_out.append({
-                "start_idx": int(start),
-                "end_idx": int(end - 1),
-                "bbox": bbox_centered
-            })
+                ch_name = (
+                    self.channel_names[ch]
+                    if ch < len(self.channel_names)
+                    else f"ch{ch}"
+                )
+                bboxes_out.append({
+                    "channel_idx":  ch,
+                    "channel_name": ch_name,
+                    "start_idx":    int(start),
+                    "end_idx":      int(end - 1),
+                    "bbox": _to_centered_bbox_from_tl(
+                        x_min_px, y_min_px, x_max_px, y_max_px, area_x, area_y
+                    ),
+                })
 
         return bboxes_out
 
     # ------------------------------------------------------------------
-    # Drawing helpers (PsychoPy-native)
+    # Drawing
     # ------------------------------------------------------------------
-    def _draw_grid_and_axes(self, window: visual.Window):
-        area_x, area_y = self.config.get_area_of_interest_size()
+    def _draw_axes(
+        self,
+        window: "visual.Window",
+        series2d: np.ndarray,
+        area_x: int,
+        area_y: int,
+        n_channels: int,
+        g_min: float,
+        g_max: float,
+        n_timepoints: int,
+    ) -> None:
+        """
+        Draw axis decorations (tick marks, scale labels, channel names) entirely
+        within the margin regions so they never overlap the plot area bboxes.
+        """
+        plot_x_min, plot_y_min, plot_x_max, plot_y_max = self._plot_area(area_x, area_y)
+        font_h = max(10, min(16, self.margin_left // 5))   # auto font size
 
-        # Grid
-        if self.draw_grid:
-            for i in range(1, self.n_xticks):
-                x = -area_x / 2 + i * area_x / self.n_xticks
-                visual.Line(
-                    window,
-                    start=(x, -area_y / 2),
-                    end=(x, area_y / 2),
-                    lineColor="gray",
-                    opacity=0.3,
+        # ---- y-axis: draw two tick labels per channel (min & max of global scale)
+        for ch in range(n_channels):
+            band_h      = (plot_y_max - plot_y_min) / n_channels
+            band_top    = plot_y_min + ch * band_h
+            band_bottom = band_top + band_h
+            band_mid    = (band_top + band_bottom) / 2.0
+
+            # tick marks at top and bottom of band
+            for y_tl, label_val in [(band_top + font_h * 0.5, g_max),
+                                    (band_bottom - font_h * 0.5, g_min)]:
+                x_c, y_c = self._tl_to_psychopy(
+                    self.margin_left / 2.0, y_tl, area_x, area_y
+                )
+                visual.TextStim(
+                    win=window, text=f"{label_val:.2g}",
+                    pos=(x_c, y_c), height=font_h,
+                    color="white", anchorHoriz="center", anchorVert="center"
                 ).draw()
 
-            for j in range(1, self.n_yticks):
-                y = -area_y / 2 + j * area_y / self.n_yticks
-                visual.Line(
-                    window,
-                    start=(-area_x / 2, y),
-                    end=(area_x / 2, y),
-                    lineColor="gray",
-                    opacity=0.3,
-                ).draw()
-
-        # Axes
-        if self.draw_axis:
-            visual.Line(
-                window,
-                start=(-area_x / 2, 0),
-                end=(area_x / 2, 0),
-                lineColor="white",
-                lineWidth=1.5,
-            ).draw()
-
-            visual.Line(
-                window,
-                start=(0, -area_y / 2),
-                end=(0, area_y / 2),
-                lineColor="white",
-                lineWidth=1.5,
-            ).draw()
-
-        # Labels
-        if self.xlabel:
+            # channel name centred in the left margin, vertically centred in band
+            ch_name = (
+                self.channel_names[ch]
+                if ch < len(self.channel_names) else f"ch{ch}"
+            )
+            x_c, y_c = self._tl_to_psychopy(
+                self.margin_left / 2.0, band_mid, area_x, area_y
+            )
             visual.TextStim(
-                window,
-                text=self.xlabel,
-                pos=(0, -area_y / 2 - 20),
-                height=14,
-                color="white",
+                win=window, text=ch_name,
+                pos=(x_c, y_c), height=font_h,
+                color="yellow", anchorHoriz="center", anchorVert="center"
             ).draw()
 
-        if self.ylabel:
+        # ---- x-axis: a few evenly-spaced index labels at the bottom
+        n_xticks = min(10, n_timepoints)
+        tick_indices = np.linspace(0, n_timepoints - 1, n_xticks, dtype=int)
+        xs_tl = self._x_positions_tl(n_timepoints, plot_x_min, plot_x_max)
+        y_label_tl = area_y - self.margin_bottom / 2.0
+        for ti in tick_indices:
+            x_c, y_c = self._tl_to_psychopy(xs_tl[ti], y_label_tl, area_x, area_y)
             visual.TextStim(
-                window,
-                text=self.ylabel,
-                pos=(-area_x / 2 - 30, 0),
-                height=14,
-                color="white",
-                ori=90,
+                win=window, text=str(ti),
+                pos=(x_c, y_c), height=font_h,
+                color="white", anchorHoriz="center", anchorVert="center"
             ).draw()
 
-    # ------------------------------------------------------------------
-    # Draw stimulus
-    # ------------------------------------------------------------------
-    def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
-        series = np.asarray(sample["data"], dtype=float)
+        # ---- axis border lines (thin grey lines separating channels)
+        for ch in range(n_channels):
+            band_h   = (plot_y_max - plot_y_min) / n_channels
+            sep_y_tl = plot_y_min + (ch + 1) * band_h   # bottom edge of band
+            if sep_y_tl >= plot_y_max:
+                continue
+            x_left_c,  y_sep_c = self._tl_to_psychopy(plot_x_min, sep_y_tl, area_x, area_y)
+            x_right_c, _       = self._tl_to_psychopy(plot_x_max, sep_y_tl, area_x, area_y)
+            visual.Line(
+                win=window,
+                start=(x_left_c, y_sep_c), end=(x_right_c, y_sep_c),
+                lineWidth=1.0, lineColor="grey"
+            ).draw()
+
+    def draw_stimulus(
+        self,
+        window: "visual.Window",
+        sample: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Draw all channels as polylines and optional axis decorations.
+
+        Returns
+        -------
+        dict with key ``"timeseries_bboxes"``: list of per-channel per-window
+        bbox dicts (only populated when ``calculate_bboxes=True``).
+        """
+        raw = np.asarray(sample["data"], dtype=float)
+        series2d = self._ensure_2d(raw)
+        n, n_ch = series2d.shape
+
         area_x, area_y = self.config.get_area_of_interest_size()
-        n = len(series)
+        plot_x_min, plot_y_min, plot_x_max, plot_y_max = self._plot_area(area_x, area_y)
 
         if n == 0:
+            window.flip()
             return {"timeseries_bboxes": []}
 
-        # Normalize
-        min_v, max_v = float(series.min()), float(series.max())
-        if math.isclose(min_v, max_v):
-            norm_vals = np.full(n, 0.5, dtype=float)
-        else:
-            norm_vals = (series - min_v) / (max_v - min_v)
+        g_min, g_max = self._global_scale(series2d)
+        xs_tl = self._x_positions_tl(n, plot_x_min, plot_x_max)
 
-        # Background (grid / axes / labels)
-        self._draw_grid_and_axes(window)
+        # ---- draw each channel as a polyline
+        for ch in range(n_ch):
+            color = self.line_colors[ch % len(self.line_colors)]
+            verts = []
+            for i in range(n):
+                y_tl = self._value_to_y_tl(
+                    series2d[i, ch], g_min, g_max,
+                    ch, n_ch, plot_y_min, plot_y_max
+                )
+                x_c, y_c = self._tl_to_psychopy(xs_tl[i], y_tl, area_x, area_y)
+                verts.append((x_c, y_c))
 
-        # Polyline vertices
-        verts = []
-        for i, v in enumerate(norm_vals):
-            x_px = (i + 0.5) * (area_x / n)
-            y_px = (1.0 - v) * area_y
+            visual.ShapeStim(
+                win=window, vertices=verts,
+                closeShape=False, lineWidth=self.line_width,
+                lineColor=color, fillColor=None
+            ).draw()
 
-            x = x_px - area_x / 2
-            y = area_y / 2 - y_px
-            verts.append((float(x), float(y)))
-
-        visual.ShapeStim(
-            win=window,
-            vertices=verts,
-            closeShape=False,
-            lineWidth=2.0,
-            lineColor="white",
-        ).draw()
+        # ---- axis decorations (outside the plot area — no bboxes touch these)
+        self._draw_axes(window, series2d, area_x, area_y, n_ch, g_min, g_max, n)
 
         window.flip()
 
-        bboxes = self._compute_timeseries_bboxes_from_series(series)
+        # ---- bboxes (only when requested)
+        bboxes: List[Dict[str, Any]] = []
+        if self.calculate_bboxes:
+            bboxes = self._compute_timeseries_bboxes_from_series(series2d)
+
         return {"timeseries_bboxes": bboxes}
