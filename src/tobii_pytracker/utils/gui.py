@@ -15,7 +15,7 @@ def prepare_monitor(config):
 
 def prepare_window(config, monitor):
     window = visual.Window(
-        fullscr=True, size=monitor.getSizePix(),
+        fullscr=True, size=monitor.getSizePix(),checkTiming=False,
         winType='pyglet', allowGUI=True, allowStencil=False,
         monitor=monitor.name, color='black',
         screen=config.get_monitor_config().get("display_number", 0),

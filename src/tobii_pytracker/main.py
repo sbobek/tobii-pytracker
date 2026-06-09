@@ -171,6 +171,13 @@ def main(config, loop_count, eyetracker_config_file,
             last_click_time = core.getTime()
             focus_time = 2.0
             debounce_time = 0.5
+            frame_delay = 0.05
+
+            #warmup frames to clean the buffer and avoid initial lags in recording when stimulus is shown
+            event.clearEvents()
+            for _ in range(5):
+                window.flip()
+                core.wait(frame_delay)
 
             # --- Headless mode (no PsychoPy GUI) ---
             if not enable_psychopy and enable_eyetracker:
@@ -200,6 +207,8 @@ def main(config, loop_count, eyetracker_config_file,
 
             # --- PsychoPy GUI loop ---
             for i, sample in enumerate(dataset.data):
+                event.clearEvents()
+                core.wait(frame_delay)
                 if i == loop_count:
                     break
 
@@ -214,7 +223,9 @@ def main(config, loop_count, eyetracker_config_file,
                                             focus_time,
                                             output_folder
                                         )
-
+     
+                #clear buffer
+                _, _ = eyetracker.poll_tracker_events(tracker, buffer, last_event_id)
                 gaze_data = [] 
                 next_data = False
                 voice_thread, voice_stop_event, voice_filename, voice_start_time = None, None, None, None

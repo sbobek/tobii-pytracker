@@ -23,8 +23,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 3440
-      - 1440
+      - 1920 #3440
+      - 1200 #1440
     width: 35
     distance: 60
     display_number: 0
