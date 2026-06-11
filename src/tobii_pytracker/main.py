@@ -207,6 +207,7 @@ def main(config, loop_count, eyetracker_config_file,
 
             # --- PsychoPy GUI loop ---
             for i, sample in enumerate(dataset.data):
+                #clear all hanging evensts and add a small delay to ensure clean state at the start of each trial
                 event.clearEvents()
                 core.wait(frame_delay)
                 if i == loop_count:
@@ -224,8 +225,7 @@ def main(config, loop_count, eyetracker_config_file,
                                             output_folder
                                         )
      
-                #clear buffer
-                _, _ = eyetracker.poll_tracker_events(tracker, buffer, last_event_id)
+                
                 gaze_data = [] 
                 next_data = False
                 voice_thread, voice_stop_event, voice_filename, voice_start_time = None, None, None, None
