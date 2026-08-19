@@ -44,6 +44,9 @@ Datasets
     :nosignatures:
 
     tobii_pytracker.datasets.CustomDataset
+    tobii_pytracker.datasets.ImageDataset
+    tobii_pytracker.datasets.TextDataset
+    tobii_pytracker.datasets.TimeSeriesDataset
 
 
 

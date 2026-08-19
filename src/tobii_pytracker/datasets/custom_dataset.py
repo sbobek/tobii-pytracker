@@ -372,8 +372,8 @@ class ImageDataset(CustomDataset):
     # SUPERPIXEL fallback
     # ------------------------------------------------------------------
     def _detect_superpixels(self, image_path: str, n_segments: int = 50):
-        #from skimage.segmentation import slic
-        #from skimage.io import imread
+        from skimage.segmentation import slic
+        from skimage.io import imread
         import numpy as np
 
         area_x, area_y = self.config.get_area_of_interest_size()
