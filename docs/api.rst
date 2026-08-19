@@ -35,15 +35,15 @@ Analyzers
 
 
 
-.. _datasetss_api:
+.. .. _datasets_api:
 
-Datasets
--------------
-.. autosummary::
-    :toctree: generated/
-    :nosignatures:
+.. Datasets
+.. -------------
+.. .. autosummary::
+..     :toctree: generated/
+..     :nosignatures:
 
-    tobii_pytracker.datasets.CustomDataset
+..     tobii_pytracker.datasets.CustomDataset
 
 
 

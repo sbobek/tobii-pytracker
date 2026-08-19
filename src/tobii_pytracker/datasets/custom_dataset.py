@@ -372,8 +372,8 @@ class ImageDataset(CustomDataset):
     # SUPERPIXEL fallback
     # ------------------------------------------------------------------
     def _detect_superpixels(self, image_path: str, n_segments: int = 50):
-        from skimage.segmentation import slic
-        from skimage.io import imread
+        #from skimage.segmentation import slic
+        #from skimage.io import imread
         import numpy as np
 
         area_x, area_y = self.config.get_area_of_interest_size()
@@ -458,140 +458,7 @@ class ImageDataset(CustomDataset):
         return {"image_bboxes": bboxes}
 
 
-# -------------------------
-# TimeSeriesDataset
-# -------------------------
-# class TimeSeriesDataset(CustomDataset):
-#     """
-#     Time series dataset: CSV rows are: index, v1, v2, ..., vN, class
-#     draw_stimulus draws the time series as a polyline in the AOI and returns per-timestamp or per-window bboxes.
-#     Bboxes are center-origin pixel coords (cx,cy,w,h) where cx,cy are in pixels relative to AOI center.
-#     """
 
-#     def __init__(self, config: Any, calculate_bboxes: bool = False, window_size: int = 1):
-#         super().__init__(config, calculate_bboxes)
-#         self.window_size = max(1, int(window_size))
-#         self._load_data()
-
-#     def _load_data(self):
-#         cfg = self.config.get_time_series_dataset_config()
-#         file_path = self.dataset_path
-#         label_col = cfg["label_column_name"]
-#         df = pd.read_csv(file_path)
-#         cols = df.columns.tolist()
-#         index_col = cols[0]
-#         ts_cols = [c for c in cols[1:] if c != label_col]
-#         self.classes = df[label_col].unique().tolist()
-#         self.classes.append("none")
-#         samples = []
-#         for _, row in df.iterrows():
-#             series = row[ts_cols].astype(float).to_numpy()
-#             samples.append({"class": row[label_col], "data": series, "index": row[index_col], "id": f"{row[index_col]}"})
-#         self.data = samples
-
-#     def _compute_timeseries_bboxes_from_series(self, series: np.ndarray) -> List[Dict[str, Any]]:
-#         """
-#         Create bboxes per timestamp OR binned by window_size.
-#         Each bbox is a vertical slice centered at the x position of the timestamp(s) and spanning a fraction of AOI height.
-#         """
-#         area_x, area_y = self.config.get_area_of_interest_size()
-#         n = len(series)
-#         if n == 0:
-#             return []
-
-#         # map series y-values to AOI vertical pixel coordinates.
-#         # Normalize series to [0,1] by min/max (if constant, make it centered)
-#         min_v, max_v = float(np.min(series)), float(np.max(series))
-#         if math.isclose(min_v, max_v):
-#             # flat series — center it
-#             norm_vals = np.full_like(series, 0.5, dtype=float)
-#         else:
-#             norm_vals = (series - min_v) / (max_v - min_v)
-
-#         # x pixel positions across AOI (spread uniformly across width)
-#         # we choose n points from x = 0..(n-1) mapped across area_x
-#         xs = np.linspace(0, area_x, n, endpoint=False) + (area_x / (2 * n))  # center each bin
-#         bboxes_out: List[Dict[str, Any]] = []
-
-#         # produce per-window bboxes
-#         for start in range(0, n, self.window_size):
-#             end = min(start + self.window_size, n)
-#             xs_window = xs[start:end]
-#             ys_window = norm_vals[start:end]
-#             # compute bounding x-range in pixels for this window
-#             x_min_px = float(xs_window.min() - (area_x / (2 * n)))  # leftmost edge of first bin
-#             x_max_px = float(xs_window.max() + (area_x / (2 * n)))  # rightmost edge of last bin
-
-#             # compute a representative y range: use min and max of values in window (map to pixels)
-#             # map norm_vals where 0 => top? we want y positive up, but top-left y used below then converted
-#             # For consistency we compute pixel y (top-left origin): y_px = (1 - norm) * area_y
-#             y_pixels = (1.0 - ys_window) * area_y
-#             y_min_px = float(y_pixels.min())
-#             y_max_px = float(y_pixels.max())
-
-#             # Expand vertical span a bit to cover area near points (optional)
-#             pad_v = max(1.0, 0.02 * area_y)
-#             y_min_px = max(0.0, y_min_px - pad_v)
-#             y_max_px = min(area_y - 1.0, y_max_px + pad_v)
-
-#             # Ensure inside area
-#             x_min_px = max(0.0, x_min_px)
-#             x_max_px = min(area_x - 1.0, x_max_px)
-
-#             # convert to centered bbox
-#             bbox_centered = _to_centered_bbox_from_tl(x_min_px, y_min_px, x_max_px, y_max_px, area_x, area_y)
-#             bboxes_out.append({
-#                 "start_idx": int(start),
-#                 "end_idx": int(end - 1),
-#                 "bbox": bbox_centered
-#             })
-
-#         return bboxes_out
-
-#     def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
-#         """
-#         Draw time series as polyline into window. Return dict {'timeseries_bboxes': [...]}
-#         where each bbox has start_idx,end_idx,bbox center-origin.
-#         """
-#         series = np.asarray(sample["data"], dtype=float)
-#         area_x, area_y = self.config.get_area_of_interest_size()
-#         n = len(series)
-#         if n == 0:
-#             return {"timeseries_bboxes": []}
-
-#         # Normalize series for plotting vertically into AOI
-#         min_v, max_v = float(series.min()), float(series.max())
-#         if math.isclose(min_v, max_v):
-#             norm_vals = np.full(n, 0.5, dtype=float)
-#         else:
-#             norm_vals = (series - min_v) / (max_v - min_v)
-
-#         # build points in PsychoPy coordinates (center-origin)
-#         xs = []
-#         ys = []
-#         for i, v in enumerate(norm_vals):
-#             # x position: map i to [-area_x/2 .. area_x/2]
-#             x_px = (i + 0.5) * (area_x / n)  # top-left origin x (0..area_x)
-#             x_centered = x_px - (area_x / 2.0)
-#             # y px in top-left origin: y_px = (1 - v) * area_y
-#             y_px = (1.0 - v) * area_y
-#             y_centered = (area_y / 2.0) - y_px
-#             xs.append(x_centered)
-#             ys.append(y_centered)
-
-#         # Draw polyline using visual.ShapeStim (faster than many small Rects)
-#         # Build vertices as list of (x,y) pairs
-#         verts = [(float(x), float(y)) for x, y in zip(xs, ys)]
-#         # Slight smoothing: join with line segments
-#         line = visual.ShapeStim(win=window, vertices=verts, closeShape=False, lineWidth=2.0, lineColor='white', fillColor=None)
-#         line.draw()
-#         window.flip()
-
-#         # compute bboxes (based on pixel positions with top-left origin)
-#         # we reuse the helper that expects top-left coords, so reconstruct top-left x,y in px
-#         # For each bin/window, compute x_min_px..x_max_px in top-left coords and y_min..y_max
-#         bboxes = self._compute_timeseries_bboxes_from_series(series)
-#         return {"timeseries_bboxes": bboxes}
 
 import math
 import numpy as np
