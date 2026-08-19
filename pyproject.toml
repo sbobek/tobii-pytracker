@@ -38,6 +38,7 @@ dependencies = [
   "scikit-learn==1.7.2",
   "psychopy-eyetracker-tobii==0.0.3",
   "tobii-research==2.0.0",
+  "setuptools<=66.1.1",
   'pywin32==311; platform_system == "Windows"',
   'sounddevice==0.5.3; platform_system == "Windows"',
   'soundfile==0.13.1; platform_system == "Windows"',
