@@ -239,10 +239,14 @@ class ImageDataset(CustomDataset):
     def __init__(self, config: Any, calculate_bboxes: bool = False):
         super().__init__(config, calculate_bboxes)
 
+        cfg = self.config.get_image_dataset_config()
+        if cfg.get("bbox_model") is not None:
+            self.calculate_bboxes=True
+
         self.model = None
         self.default_detector = None
-        if calculate_bboxes:
-            self.default_detector = config.get("default_detector", "grid")  # grid | superpixel | saliency
+        if self.calculate_bboxes:
+            self.default_detector = cfg.get("bbox_model")  # grid | superpixel | saliency | custom model class
     
         # Attempt to load a custom model from config
         if self.calculate_bboxes:
