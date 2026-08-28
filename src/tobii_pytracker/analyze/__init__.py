@@ -6,7 +6,6 @@ from .models import (
     SaccadeAnalyzer,
     EntropyAnalyzer,
     ClusterAnalyzer,
-    ConceptAnalyzer,
     ScanpathsAnalyzer,
     VoiceTranscription
 )
@@ -20,7 +19,6 @@ __all__ = [
     "SaccadeAnalyzer",
     "EntropyAnalyzer",
     "ClusterAnalyzer",
-    "ConceptAnalyzer",
     "ScanpathsAnalyzer",
     "VoiceTranscription"
 ]
