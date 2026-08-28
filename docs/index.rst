@@ -38,7 +38,7 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
    :maxdepth: 2
    :caption: Tutorials on data collection
    
-   Configuration <configuration>
+   Experiment Configuration <configuration>
    Commandline Usage <commandline_usage>
    Basic Usage examples <basic_examples>
    Eyetracker emulation <mouse_emulation>
@@ -49,6 +49,7 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
 
    Data loading and visualization <data_loading_visualization>
    Data analyzers <data_analyzers>
+
 
 .. toctree::
    :maxdepth: 2

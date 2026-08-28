@@ -1290,33 +1290,165 @@ class ClusterAnalyzer:
 
 
 
-class ConceptAnalyzer(BaseAnalyzer):
-    """
-    Defines AOI-like (Areas of Interest) concepts from clusters
-    and computes engagement statistics per concept.
-
-    This class operates directly on flattened background data.
-
-    Parameters
-    ----------
-    background_data : pd.DataFrame
-        Combined dataset across subjects, slides, and events.
-    """
-
-    def __init__(self, background_data: pd.DataFrame):
-        super().__init__(background_data)
-
-    #TODO: Implement methods for concept definition and analysis.
-
 class ScanpathsAnalyzer(BaseAnalyzer):
     """
-    Analyzes sequential transitions between fixations
-    to characterize scanpaths per slide, set, or globally.
+    Analyzes sequential transitions between fixations.
+
+    Raw gaze data is converted to fixations with ``FixationAnalyzer``. A
+    DataFrame containing fixation results can also be supplied directly.
     """
 
-    def __init__(self, background_data: pd.DataFrame):
-        super().__init__(background_data)
-    #TODO: Implement methods for concept definition and analysis.
+    _result_columns = [
+        "set_name", "slide_index", "from_fixation", "to_fixation",
+        "start_time", "end_time", "transition_duration", "x_start",
+        "y_start", "x_end", "y_end", "distance", "start_duration",
+        "end_duration",
+    ]
+
+    def __init__(self, output_folder: Path):
+        super().__init__(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "slide",
+    ) -> pd.DataFrame:
+        """Compute ordered transitions between consecutive fixations."""
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("Parameter 'per' must be one of: ['global', 'set', 'slide'].")
+
+        required_group_columns = {"set_name", "slide_index"}
+        missing_groups = required_group_columns - set(background_data.columns)
+        if missing_groups:
+            raise ValueError(
+                f"background_data missing required columns: {sorted(missing_groups)}"
+            )
+
+        fixation_columns = {"fix_start", "fix_end", "duration", "x_mean", "y_mean"}
+        if fixation_columns.issubset(background_data.columns):
+            fixations = background_data.copy()
+        else:
+            gaze_columns = {"avg_gaze_x", "avg_gaze_y", "system_time"}
+            missing_gaze = gaze_columns - set(background_data.columns)
+            if missing_gaze:
+                raise ValueError(
+                    "background_data must contain fixation columns or gaze columns: "
+                    f"{sorted(missing_gaze)}"
+                )
+            fixations = FixationAnalyzer(self.output_folder).analyze(background_data)
+
+        if per == "global":
+            groups = [("global", fixations.sort_values("fix_start"))]
+        elif per == "set":
+            groups = fixations.sort_values("fix_start").groupby("set_name")
+        else:
+            groups = fixations.sort_values("fix_start").groupby(
+                ["set_name", "slide_index"]
+            )
+
+        transitions = []
+        for group_key, group in groups:
+            group = group.sort_values("fix_start").reset_index(drop=True)
+            if len(group) < 2:
+                continue
+
+            for index in range(len(group) - 1):
+                start = group.iloc[index]
+                end = group.iloc[index + 1]
+                record = {
+                    "from_fixation": index,
+                    "to_fixation": index + 1,
+                    "start_time": start["fix_start"],
+                    "end_time": end["fix_start"],
+                    "transition_duration": end["fix_start"] - start["fix_end"],
+                    "x_start": start["x_mean"],
+                    "y_start": start["y_mean"],
+                    "x_end": end["x_mean"],
+                    "y_end": end["y_mean"],
+                    "distance": np.sqrt(
+                        (end["x_mean"] - start["x_mean"]) ** 2
+                        + (end["y_mean"] - start["y_mean"]) ** 2
+                    ),
+                    "start_duration": start["duration"],
+                    "end_duration": end["duration"],
+                }
+
+                if per == "global":
+                    record["set_name"] = start["set_name"]
+                    record["slide_index"] = start["slide_index"]
+                elif per == "set":
+                    record["set_name"] = group_key
+                    record["slide_index"] = start["slide_index"]
+                else:
+                    record["set_name"], record["slide_index"] = group_key
+
+                transitions.append(record)
+
+        self.results = pd.DataFrame(transitions, columns=self._result_columns)
+        return self.results
+
+    def plot_analysis(
+        self,
+        scanpaths: Optional[pd.DataFrame],
+        screenshot_path: Path,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        title: Optional[str] = None,
+        flip_y: bool = True,
+        color: str = "cyan",
+        alpha: float = 0.8,
+        linewidth: float = 2.0,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """Overlay scanpath transitions on a screenshot."""
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        df = scanpaths.copy() if scanpaths is not None else self.results
+        if df is None or df.empty:
+            raise ValueError("No scanpath data available. Run analyze() first.")
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None:
+            df = df[df["slide_index"] == slide_index]
+        if df.empty:
+            raise ValueError("No scanpath data matches the provided filters.")
+
+        img = mpimg.imread(screenshot_path)
+        height, width = img.shape[:2]
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.imshow(img, origin="upper")
+
+        for _, row in df.iterrows():
+            x_start = width / 2 + row["x_start"]
+            x_end = width / 2 + row["x_end"]
+            y_start = height / 2 - row["y_start"] if flip_y else height / 2 + row["y_start"]
+            y_end = height / 2 - row["y_end"] if flip_y else height / 2 + row["y_end"]
+            ax.arrow(
+                x_start,
+                y_start,
+                x_end - x_start,
+                y_end - y_start,
+                color=color,
+                alpha=alpha,
+                linewidth=linewidth,
+                head_width=10,
+                length_includes_head=True,
+            )
+
+        ax.set_title(title or f"Scanpath — {set_name or 'All'}, Slide {slide_index or '?'}")
+        ax.axis("off")
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
    
 
 
