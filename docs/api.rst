@@ -29,7 +29,6 @@ Analyzers
     tobii_pytracker.analyze.SaccadeAnalyzer
     tobii_pytracker.analyze.EntropyAnalyzer
     tobii_pytracker.analyze.ClusterAnalyzer
-    tobii_pytracker.analyze.ConceptAnalyzer
     tobii_pytracker.analyze.ScanpathsAnalyzer
     tobii_pytracker.analyze.VoiceTranscription
 
