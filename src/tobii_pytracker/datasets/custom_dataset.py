@@ -284,7 +284,7 @@ class ImageDataset(CustomDataset):
 
             for root, _, files in os.walk(class_path):
                 for f in files:
-                    if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+                    if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".tif")):
                         full_path = os.path.join(root, f)
                         sample = {"class": class_name, "data": full_path, "id": os.path.basename(full_path)}
 

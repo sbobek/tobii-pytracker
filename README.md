@@ -1,6 +1,6 @@
 [![PyPI](https://img.shields.io/pypi/v/tobii-pytracker)](https://pypi.org/project/tobii-pytracker/)  ![License](https://img.shields.io/github/license/sbobek/tobii-pytracker)
  ![PyPI - Downloads](https://img.shields.io/pypi/dm/tobii-pytracker) [![Documentation Status](https://readthedocs.org/projects/tobii-pytracker/badge/?version=latest)](https://tobii-pytracker.readthedocs.io/en/latest/?badge=latest)
-# Toolkit for AI-enhanced Eye-tracking data collection
+# Toolkit for AI-enhanced Eye-tracking data collection and analysis
 
 
 A Python framework for conducting **eyetracking-based experiments** on **perception** and **reasoning** in machine learning (ML) tasks, as well as for **data enrichment**.
@@ -98,7 +98,7 @@ Different datasets can be specified in the config file that will be processed an
 
     > NOTE: GUI will be created accordingly to this structure and class labels will be extracted from subfolder names within the dataset. If using custom model, remember to make them match class names.
 
-2. __Text datasets__ *(.csv)*:
+2. __Text datasets__ and __Time series datasets__ *(.csv)*:
     ```.
     ├── dataset.csv
     └── ...

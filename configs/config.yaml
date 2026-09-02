@@ -1,7 +1,7 @@
 dataset:
   image:
-    bbox_model:  superpixel #grid | superpixel | saliency
-    path: datasets/vehicles
+    bbox_model:  grid #grid | superpixel | saliency
+    path: datasets/coindefect6k
 
   # text:
   #   label_column_name: sentiment
