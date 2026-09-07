@@ -11,6 +11,9 @@ services:
       - PYTHONPATH=/app/src
       - QT_QPA_PLATFORM=offscreen
       - ENABLE_EYETRACKER=false
+      - HOME=/tmp
+      - XDG_CACHE_HOME=/tmp/.cache
+      - MPLCONFIGDIR=/tmp/.matplotlib
     volumes:
       - ./configs:/app/configs:rw
       - ./datasets:/app/datasets:ro

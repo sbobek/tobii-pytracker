@@ -27,14 +27,8 @@ echo "Using UID=$HOST_UID, GID=$HOST_GID for file permissions"
 echo ""
 export HOST_UID HOST_GID
 
-echo "Building Docker image..."
-$COMPOSE_CMD build
-
-echo ""
-echo "Build complete!"
-echo ""
 echo "Starting Tobii PyTracker..."
-$COMPOSE_CMD up
+$COMPOSE_CMD up --build
 
 echo ""
 echo "Application stopped."

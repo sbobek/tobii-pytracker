@@ -1,10 +1,8 @@
 import os
 import csv
 import argparse
-import importlib
 import threading
 from datetime import datetime
-import traceback
 from psychopy import event, core
 
 from .utils import gui, eyetracker
