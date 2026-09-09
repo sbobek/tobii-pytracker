@@ -12,12 +12,12 @@ from tests.support import bootstrap_test_environment
 bootstrap_test_environment()
 
 from tobii_pytracker.analyze.models import (
+    BaseAnalyzer,
     ClusterAnalyzer,
     ConceptAnalyzer,
     ScanpathsAnalyzer,
     VoiceTranscription,
     BBoxAttentionAnalyzer,
-    SlideScopedAnalyzer,
 )
 
 
@@ -151,7 +151,7 @@ class TestPlaceholderAnalyzers(unittest.TestCase):
             pass
 
 
-class TestSlideScopedAnalyzer(unittest.TestCase):
+class TestBaseAnalyzerHelpers(unittest.TestCase):
     
 
     def setUp(self):
@@ -161,15 +161,15 @@ class TestSlideScopedAnalyzer(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_slide_scoped_analyzer_init(self):
+    def test_base_analyzer_init(self):
         
-        analyzer = SlideScopedAnalyzer(self.output_folder)
+        analyzer = BaseAnalyzer(self.output_folder)
         self.assertEqual(analyzer.output_folder, self.output_folder)
         self.assertTrue(self.output_folder.exists())
 
     def test_normalize_slide_index_column(self):
         
-        analyzer = SlideScopedAnalyzer(self.output_folder)
+        analyzer = BaseAnalyzer(self.output_folder)
         
         df = pd.DataFrame({
             "set_name": ["s1", "s1", "s2", "s2"],
@@ -182,7 +182,7 @@ class TestSlideScopedAnalyzer(unittest.TestCase):
 
     def test_filter_set_and_slide(self):
         
-        analyzer = SlideScopedAnalyzer(self.output_folder)
+        analyzer = BaseAnalyzer(self.output_folder)
         
         df = pd.DataFrame({
             "set_name": ["s1", "s1", "s2", "s2"],
@@ -195,7 +195,7 @@ class TestSlideScopedAnalyzer(unittest.TestCase):
 
     def test_resolve_gaze_columns(self):
         
-        analyzer = SlideScopedAnalyzer(self.output_folder)
+        analyzer = BaseAnalyzer(self.output_folder)
         
         df = pd.DataFrame({
             "gaze_x": [100, 200],

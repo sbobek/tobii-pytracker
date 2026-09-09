@@ -1,8 +1,7 @@
-import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Any, List, Literal
+from typing import Optional, Any, Dict, List, Literal
 from scipy.stats import entropy
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -27,6 +26,7 @@ class BaseAnalyzer:
 
     def __init__(self, output_folder: Path):
         self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
         self.results: Optional[pd.DataFrame] = None
 
     def analyze(self, *args, **kwargs) -> pd.DataFrame:
@@ -41,6 +41,49 @@ class BaseAnalyzer:
         filename = filename or f"{self.__class__.__name__}_results.json"
         filepath = self.output_folder / filename
         self.results.to_json(filepath, orient="records", indent=4, force_ascii=False)
+
+    @staticmethod
+    def _normalize_slide_index_column(
+        data: pd.DataFrame,
+        column: str = "slide_index",
+    ) -> pd.DataFrame:
+        normalized = data.copy()
+        normalized[column] = pd.to_numeric(
+            normalized[column],
+            errors="coerce",
+        ).astype("Int64")
+        return normalized
+
+    @staticmethod
+    def _filter_set_and_slide(
+        data: pd.DataFrame,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+    ) -> pd.DataFrame:
+        filtered = data
+
+        if set_name is not None and "set_name" in filtered.columns:
+            filtered = filtered[
+                filtered["set_name"].astype(str) == str(set_name)
+            ]
+
+        if slide_index is not None and "slide_index" in filtered.columns:
+            filtered = filtered[
+                pd.to_numeric(
+                    filtered["slide_index"],
+                    errors="coerce",
+                ) == int(slide_index)
+            ]
+
+        return filtered
+
+    @staticmethod
+    def _resolve_gaze_columns(
+        use_fixations: bool,
+    ) -> tuple[str, str, Optional[str]]:
+        if use_fixations:
+            return "x_mean", "y_mean", "duration"
+        return "avg_gaze_x", "avg_gaze_y", None
 
 
 # ---------------------------------------------------------------------
@@ -1329,135 +1372,36 @@ class VoiceTranscription(BaseAnalyzer):
     # TODO: Implement methods for concept definition and analysis.
 
 
-# BBOX stuff, todo change contract
-import ast
-import json
-from pathlib import Path
-from typing import Optional, Any, Dict, List
-
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.patches as patches
-import matplotlib.colors as mcolors
-import matplotlib.patheffects as pe
-from matplotlib.path import Path as MplPath
-import numpy as np
-import pandas as pd
+from .bbox import (
+    analyze_bbox_attention,
+    bbox_edges_centered,
+    evaluate_bbox_attention,
+    parse_objects_bboxes,
+    plot_bbox_attention,
+    point_inside_bbox,
+    point_inside_polygon,
+    polygon_to_plot_coords,
+    polygon_vertices,
+)
 
 
-class SlideScopedAnalyzer(BaseAnalyzer):
-    """
-    Shared helpers for analyzers that work on set/slide scoped data.
-    """
-
-    def __init__(self, output_folder: Path):
-        super().__init__(output_folder)
-        self.output_folder.mkdir(parents=True, exist_ok=True)
-
-    @staticmethod
-    def _normalize_slide_index_column(
-        data: pd.DataFrame,
-        column: str = "slide_index",
-    ) -> pd.DataFrame:
-        normalized = data.copy()
-        normalized[column] = pd.to_numeric(
-            normalized[column],
-            errors="coerce",
-        ).astype("Int64")
-        return normalized
-
-    @staticmethod
-    def _filter_set_and_slide(
-        data: pd.DataFrame,
-        set_name: Optional[Any] = None,
-        slide_index: Optional[Any] = None,
-    ) -> pd.DataFrame:
-        filtered = data
-
-        if set_name is not None and "set_name" in filtered.columns:
-            filtered = filtered[
-                filtered["set_name"].astype(str) == str(set_name)
-            ]
-
-        if slide_index is not None and "slide_index" in filtered.columns:
-            filtered = filtered[
-                pd.to_numeric(
-                    filtered["slide_index"],
-                    errors="coerce",
-                ) == int(slide_index)
-            ]
-
-        return filtered
-
-    @staticmethod
-    def _resolve_gaze_columns(
-        use_fixations: bool,
-    ) -> tuple[str, str, Optional[str]]:
-        if use_fixations:
-            return "x_mean", "y_mean", "duration"
-        return "avg_gaze_x", "avg_gaze_y", None
-
-
-class BBoxAttentionAnalyzer(SlideScopedAnalyzer):
-
-    def __init__(self, output_folder: Path):
-        super().__init__(output_folder)
+class BBoxAttentionAnalyzer(BaseAnalyzer):
 
     @staticmethod
     def _parse_objects_bboxes(value: Any) -> Dict[str, Any]:
-        if isinstance(value, dict):
-            return value
-
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except Exception:
-                try:
-                    return ast.literal_eval(value)
-                except Exception:
-                    return {"image_bboxes": []}
-
-        return {"image_bboxes": []}
+        return parse_objects_bboxes(value)
 
     @staticmethod
     def _bbox_edges_centered(bbox: Dict[str, float]) -> Dict[str, float]:
-        cx = float(bbox["cx"])
-        cy = float(bbox["cy"])
-        w = float(bbox["w"])
-        h = float(bbox["h"])
-
-        return {
-            "x_min": cx - w / 2.0,
-            "x_max": cx + w / 2.0,
-            "y_min": cy - h / 2.0,
-            "y_max": cy + h / 2.0,
-        }
+        return bbox_edges_centered(bbox)
 
     @staticmethod
     def _polygon_vertices(value: Any) -> Optional[np.ndarray]:
-        if value is None:
-            return None
-
-        vertices: List[List[float]] = []
-
-        try:
-            for point in value:
-                if isinstance(point, dict):
-                    vertices.append([float(point["x"]), float(point["y"])])
-                else:
-                    x, y = point
-                    vertices.append([float(x), float(y)])
-        except (TypeError, ValueError, KeyError, IndexError):
-            return None
-
-        if len(vertices) < 3:
-            return None
-
-        return np.asarray(vertices, dtype=float)
+        return polygon_vertices(value)
 
     @staticmethod
     def _point_inside_polygon(x: float, y: float, polygon: np.ndarray) -> bool:
-        return bool(MplPath(polygon, closed=True).contains_point((x, y)))
+        return point_inside_polygon(x, y, polygon)
 
     @staticmethod
     def _polygon_to_plot_coords(
@@ -1465,19 +1409,16 @@ class BBoxAttentionAnalyzer(SlideScopedAnalyzer):
         width: float,
         height: float,
     ) -> np.ndarray:
-        return np.column_stack([
-            width / 2.0 + polygon[:, 0],
-            height / 2.0 - polygon[:, 1],
-        ])
+        return polygon_to_plot_coords(polygon, width, height)
 
     @staticmethod
-    def _point_inside_bbox(x: float, y: float, bbox: Dict[str, float], margin: float = 2.0) -> bool:
-        edges = BBoxAttentionAnalyzer._bbox_edges_centered(bbox)
-
-        return (
-            edges["x_min"] - margin <= x <= edges["x_max"] + margin
-            and edges["y_min"] - margin <= y <= edges["y_max"] + margin
-        )
+    def _point_inside_bbox(
+        x: float,
+        y: float,
+        bbox: Dict[str, float],
+        margin: float = 2.0,
+    ) -> bool:
+        return point_inside_bbox(x, y, bbox, margin=margin)
 
     def analyze(
         self,
@@ -1485,149 +1426,14 @@ class BBoxAttentionAnalyzer(SlideScopedAnalyzer):
         gaze_data: pd.DataFrame,
         use_fixations: bool = False,
     ) -> pd.DataFrame:
-        records = []
-
-        if "set_name" not in raw_data.columns:
-            raise ValueError("raw_data must contain set_name column.")
-
-        raw_data = raw_data.copy()
-        gaze_data = gaze_data.copy()
-
-        if "slide_index" not in raw_data.columns:
-            raw_data["slide_index"] = raw_data.groupby("set_name").cumcount()
-
-        raw_data = self._normalize_slide_index_column(raw_data)
-        gaze_data = self._normalize_slide_index_column(gaze_data)
-        x_col, y_col, duration_col = self._resolve_gaze_columns(
-            use_fixations=use_fixations
+        result = analyze_bbox_attention(
+            raw_data=raw_data,
+            gaze_data=gaze_data,
+            use_fixations=use_fixations,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+            resolve_gaze_columns=self._resolve_gaze_columns,
         )
-
-        for _, row in raw_data.iterrows():
-            set_name = str(row["set_name"])
-            slide_index = int(row["slide_index"])
-
-            slide_gaze = self._filter_set_and_slide(
-                gaze_data,
-                set_name=set_name,
-                slide_index=slide_index,
-            ).copy()
-
-            slide_gaze = slide_gaze.dropna(subset=[x_col, y_col])
-
-            bbox_container = self._parse_objects_bboxes(
-                row.get("objects_bboxes", {})
-            )
-            image_bboxes = bbox_container.get("image_bboxes", [])
-
-            total_points = len(slide_gaze)
-
-            for bbox_index, bbox_record in enumerate(image_bboxes):
-                bbox_payload = bbox_record.get("bbox", {})
-                polygon = self._polygon_vertices(bbox_payload)
-
-                if polygon is None:
-                    polygon = self._polygon_vertices(
-                        bbox_record.get("polygon")
-                    )
-
-                rect_bbox = bbox_record.get("rect_bbox", {})
-                if not isinstance(rect_bbox, dict):
-                    rect_bbox = {}
-
-                if polygon is not None:
-                    x_min = float(polygon[:, 0].min())
-                    x_max = float(polygon[:, 0].max())
-                    y_min = float(polygon[:, 1].min())
-                    y_max = float(polygon[:, 1].max())
-
-                    cx = (x_min + x_max) / 2.0
-                    cy = (y_min + y_max) / 2.0
-                    bbox_width = x_max - x_min
-                    bbox_height = y_max - y_min
-                elif isinstance(bbox_payload, dict) and {
-                    "cx",
-                    "cy",
-                    "w",
-                    "h",
-                }.issubset(bbox_payload.keys()):
-                    cx = float(bbox_payload["cx"])
-                    cy = float(bbox_payload["cy"])
-                    bbox_width = float(bbox_payload["w"])
-                    bbox_height = float(bbox_payload["h"])
-                elif {"cx", "cy", "w", "h"}.issubset(rect_bbox.keys()):
-                    cx = float(rect_bbox["cx"])
-                    cy = float(rect_bbox["cy"])
-                    bbox_width = float(rect_bbox["w"])
-                    bbox_height = float(rect_bbox["h"])
-                else:
-                    continue
-
-                hits = []
-                hit_gaze_indices = []
-
-                for gaze_idx, gaze_row in slide_gaze.iterrows():
-                    x = float(gaze_row[x_col])
-                    y = float(gaze_row[y_col])
-
-                    inside = (
-                        self._point_inside_polygon(x, y, polygon)
-                        if polygon is not None
-                        else self._point_inside_bbox(
-                            x,
-                            y,
-                            {
-                                "cx": cx,
-                                "cy": cy,
-                                "w": bbox_width,
-                                "h": bbox_height,
-                            },
-                        )
-                    )
-
-                    if inside:
-                        hits.append(gaze_row)
-                        hit_gaze_indices.append(int(gaze_idx))
-
-                hit_count = len(hits)
-                coverage = hit_count / total_points if total_points else 0.0
-
-                if hits and duration_col and duration_col in slide_gaze.columns:
-                    dwell_time = float(
-                        pd.DataFrame(hits)[duration_col].fillna(0).sum()
-                    )
-                else:
-                    dwell_time = float(hit_count)
-
-                records.append({
-                    "set_name": set_name,
-                    "slide_index": slide_index,
-                    "screenshot_file": row.get("screenshot_file"),
-                    "input_data": row.get("input_data"),
-                    "bbox_index": bbox_index,
-                    "bbox_class": bbox_record.get("class"),
-                    "bbox_conf": bbox_record.get("conf"),
-                    "cx": float(cx),
-                    "cy": float(cy),
-                    "w": float(bbox_width),
-                    "h": float(bbox_height),
-                    "polygon": polygon.tolist() if polygon is not None else None,
-                    "total_gaze_points": total_points,
-                    "hit_count": hit_count,
-                    "hit_gaze_indices": hit_gaze_indices,
-                    "coverage": coverage,
-                    "dwell_time": dwell_time,
-                    "attention_score": coverage,
-                })
-
-        result = pd.DataFrame(records)
-
-        if not result.empty:
-            result["attention_rank"] = (
-                result.groupby(["set_name", "slide_index"])["attention_score"]
-                .rank(method="dense", ascending=False)
-                .astype(int)
-            )
-
         self.results = result
         return result
 
@@ -1636,71 +1442,7 @@ class BBoxAttentionAnalyzer(SlideScopedAnalyzer):
             scored_bboxes: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
         df = scored_bboxes if scored_bboxes is not None else self.results
-
-        if df is None or df.empty:
-            return pd.DataFrame()
-
-        grouped = []
-
-        for (set_name, slide_index), group in df.groupby(
-                ["set_name", "slide_index"]
-        ):
-            total_points = int(group["total_gaze_points"].max())
-            bbox_count = len(group)
-            attended_bboxes = int((group["hit_count"] > 0).sum())
-
-            total_bbox_memberships = int(group["hit_count"].sum())
-
-            unique_hit_indices = set()
-
-            if "hit_gaze_indices" in group.columns:
-                for indices in group["hit_gaze_indices"]:
-                    if isinstance(indices, (list, tuple, set, np.ndarray)):
-                        unique_hit_indices.update(int(i) for i in indices)
-
-            unique_gaze_hit_count = len(unique_hit_indices)
-
-            unique_coverage = (
-                unique_gaze_hit_count / total_points
-                if total_points
-                else 0.0
-            )
-
-            overlap_factor = (
-                total_bbox_memberships / unique_gaze_hit_count
-                if unique_gaze_hit_count
-                else 0.0
-            )
-
-            grouped.append({
-                "set_name": set_name,
-                "slide_index": slide_index,
-                "bbox_count": bbox_count,
-                "attended_bboxes": attended_bboxes,
-                "attended_bbox_ratio": (
-                    attended_bboxes / bbox_count
-                    if bbox_count
-                    else 0.0
-                ),
-                "total_gaze_points": total_points,
-
-                "bbox_hit_count": total_bbox_memberships,
-
-                "unique_gaze_hit_count": unique_gaze_hit_count,
-
-                "coverage_by_bboxes": unique_coverage,
-
-                "overlap_factor": overlap_factor,
-
-                "max_attention_score": float(
-                    group["attention_score"].max()
-                ),
-                "mean_attention_score": float(
-                    group["attention_score"].mean()
-                ),
-            })
-
-        return pd.DataFrame(grouped)
+        return evaluate_bbox_attention(df)
 
     def plot_analysis(
             self,
@@ -1716,193 +1458,17 @@ class BBoxAttentionAnalyzer(SlideScopedAnalyzer):
             show: bool = True,
             save_path: Optional[Path] = None,
     ):
-        screenshot_path = Path(screenshot_path)
-
-        if not screenshot_path.exists():
-            raise FileNotFoundError(
-                f"Screenshot not found: {screenshot_path}"
-            )
-
-        boxes = scored_bboxes.copy()
-        slide_gaze = gaze_data.copy()
-
-        boxes = self._filter_set_and_slide(
-            boxes,
+        return plot_bbox_attention(
+            scored_bboxes=scored_bboxes,
+            gaze_data=gaze_data,
+            screenshot_path=screenshot_path,
             set_name=set_name,
             slide_index=slide_index,
+            title=title,
+            top_k=top_k,
+            min_hits=min_hits,
+            show_gaze=show_gaze,
+            show=show,
+            save_path=save_path,
+            filter_set_and_slide=self._filter_set_and_slide,
         )
-        slide_gaze = self._filter_set_and_slide(
-            slide_gaze,
-            set_name=set_name,
-            slide_index=slide_index,
-        )
-
-        if min_hits is not None:
-            boxes = boxes[boxes["hit_count"] >= min_hits]
-
-        if boxes.empty:
-            raise ValueError(
-                "No attended bboxes to plot for the given filters."
-            )
-
-        if top_k is not None:
-            boxes = (
-                boxes
-                .sort_values(
-                    "attention_score",
-                    ascending=False,
-                )
-                .head(top_k)
-            )
-
-        img = mpimg.imread(screenshot_path)
-        height, width = img.shape[:2]
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.imshow(img, origin="upper")
-
-        if show_gaze and not slide_gaze.empty:
-            gaze_x = (
-                    width / 2.0
-                    + slide_gaze["avg_gaze_x"].astype(float)
-            )
-            gaze_y = (
-                    height / 2.0
-                    - slide_gaze["avg_gaze_y"].astype(float)
-            )
-
-            ax.scatter(
-                gaze_x,
-                gaze_y,
-                s=40,
-                alpha=0.8,
-                c="#FF1493",
-                edgecolors="white",
-                linewidths=1.5,
-                label="gaze samples",
-                zorder=10,
-            )
-
-        max_score = float(boxes["attention_score"].max())
-        border_color = "white"
-        border_linewidth = 2.5
-        border_halo_linewidth = 5.5
-        fill_color = "#00E5FF"
-
-        for _, row in boxes.iterrows():
-            score = float(row["attention_score"])
-            intensity = (
-                score / max_score
-                if max_score > 0
-                else 0.0
-            )
-            polygon = self._polygon_vertices(row.get("polygon"))
-            if polygon is None:
-                polygon = self._polygon_vertices(row.get("bbox"))
-
-            if polygon is not None:
-                fill_rgba = mcolors.to_rgba(
-                    fill_color,
-                    alpha=0.08 + 0.22 * intensity,
-                )
-                polygon_xy = self._polygon_to_plot_coords(
-                    polygon,
-                    width,
-                    height,
-                )
-                patch = patches.Polygon(
-                    polygon_xy,
-                    closed=True,
-                    linewidth=border_linewidth,
-                    edgecolor=border_color,
-                    facecolor=fill_rgba,
-                    zorder=8,
-                )
-                patch.set_path_effects([
-                    pe.Stroke(
-                        linewidth=border_halo_linewidth,
-                        foreground="black",
-                    ),
-                    pe.Normal(),
-                ])
-                ax.add_patch(patch)
-                label_x, label_y = polygon_xy.mean(axis=0)
-            else:
-                fill_rgba = mcolors.to_rgba(
-                    fill_color,
-                    alpha=0.08 + 0.22 * intensity,
-                )
-                cx = float(row["cx"])
-                cy = float(row["cy"])
-                bbox_width = float(row["w"])
-                bbox_height = float(row["h"])
-                x_min = width / 2.0 + (cx - bbox_width / 2.0)
-                y_min = height / 2.0 - (cy + bbox_height / 2.0)
-
-                rectangle = patches.Rectangle(
-                    (x_min, y_min),
-                    bbox_width,
-                    bbox_height,
-                    linewidth=border_linewidth,
-                    edgecolor=border_color,
-                    facecolor=fill_rgba,
-                    zorder=8,
-                )
-                rectangle.set_path_effects([
-                    pe.Stroke(
-                        linewidth=border_halo_linewidth,
-                        foreground="black",
-                    ),
-                    pe.Normal(),
-                ])
-
-                ax.add_patch(rectangle)
-                label_x, label_y = x_min, y_min
-
-            ax.text(
-                label_x + 3,
-                label_y + 14,
-                f"{int(row['hit_count'])}",
-                color="white",
-                fontsize=10,
-                fontweight="bold",
-                zorder=11,
-                bbox=dict(
-                    facecolor="black",
-                    edgecolor="white",
-                    alpha=1.0,
-                    pad=2,
-                ),
-            )
-
-        set_label = set_name if set_name is not None else "All sets"
-        slide_label = (
-            slide_index
-            if slide_index is not None
-            else "All slides"
-        )
-
-        ax.set_title(
-            title
-            or f"BBox attention — {set_label}, slide {slide_label}"
-        )
-        ax.axis("off")
-
-        if save_path is not None:
-            save_path = Path(save_path)
-            save_path.parent.mkdir(
-                parents=True,
-                exist_ok=True,
-            )
-            fig.savefig(
-                save_path,
-                bbox_inches="tight",
-                dpi=200,
-            )
-
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
-
-        return fig, ax
