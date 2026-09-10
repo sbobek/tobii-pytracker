@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
+echo "Using UID=$HOST_UID, GID=$HOST_GID for file permissions"
+echo ""
+export HOST_UID HOST_GID
+
+echo "Creating output directory and adding group permission to read and write"
+mkdir -p output
+chown -R $HOST_UID:$HOST_GID output
+chmod u+rwx output
+chmod g+rwx output
+chmod g+s output
+
+
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD="docker compose"
 elif command -v docker-compose >/dev/null 2>&1; then
