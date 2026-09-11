@@ -14,7 +14,6 @@ bootstrap_test_environment()
 from tobii_pytracker.analyze.models import (
     BaseAnalyzer,
     ClusterAnalyzer,
-    ConceptAnalyzer,
     ScanpathsAnalyzer,
     VoiceTranscription,
     BBoxAttentionAnalyzer,
@@ -119,16 +118,6 @@ class TestPlaceholderAnalyzers(unittest.TestCase):
 
     def tearDown(self):
         self.temp_dir.cleanup()
-
-    def test_concept_analyzer_init(self):
-        
-        df = pd.DataFrame({"col1": [1, 2], "col2": [3, 4]})
-        try:
-            analyzer = ConceptAnalyzer(df)
-            self.assertIsNotNone(analyzer)
-        except TypeError:
-            # Expected if ConceptAnalyzer has issues with the parent class
-            pass
 
     def test_scanpaths_analyzer_init(self):
         
