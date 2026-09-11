@@ -29,9 +29,7 @@ def _to_centered_bbox_from_tl(x_min_px: float, y_min_px: float, x_max_px: float,
     x_center_px = x_min_px + w_px / 2.0
     y_center_px = y_min_px + h_px / 2.0
 
-    # center-origin
     cx = x_center_px - (area_x / 2.0)
-    # convert y: top-left -> center-origin with positive-up
     cy = (area_y / 2.0) - y_center_px
 
     return {"cx": float(cx), "cy": float(cy), "w": float(w_px), "h": float(h_px)}
@@ -41,6 +39,25 @@ def _image_load_size(path: str) -> Tuple[int, int]:
     """Return (width, height) of image at path using PIL."""
     with Image.open(path) as im:
         return im.size  # width, height
+
+
+def _contour_to_centered_polygon(
+    contour: np.ndarray,
+    img_w: int,
+    img_h: int,
+    area_x: int,
+    area_y: int,
+) -> List[Tuple[float, float]]:
+    scale_x = area_x / img_w
+    scale_y = area_y / img_h
+
+    return [
+        (
+            float(col * scale_x - (area_x / 2.0)),
+            float((area_y / 2.0) - (row * scale_y)),
+        )
+        for row, col in contour
+    ]
 
 
 # -------------------------
@@ -123,7 +140,7 @@ class TextDataset(CustomDataset):
             pos=(0, 0),
             height=self.font_height,
             wrapWidth=wrap_width,
-            alignText="left",   # we'll center the block ourselves by computing left offset
+            alignText="left",  # we'll center the block ourselves by computing left offset
             color="white"
         )
         paragraph.draw()
@@ -196,7 +213,8 @@ class TextDataset(CustomDataset):
             line_y_min = y_cursor
             line_y_max = y_cursor + line_h
 
-            line_bbox_centered = _to_centered_bbox_from_tl(line_x_min, line_y_min, line_x_max, line_y_max, area_x, area_y)
+            line_bbox_centered = _to_centered_bbox_from_tl(line_x_min, line_y_min, line_x_max, line_y_max, area_x,
+                                                           area_y)
             lines_out.append({
                 "text": " ".join([w for (w, _, _) in line]),
                 "conf": 1.0,
@@ -224,6 +242,7 @@ class TextDataset(CustomDataset):
             y_cursor += line_h
 
         return {"words": words_out, "lines": lines_out}
+
 
 class ImageDataset(CustomDataset):
     """
@@ -376,32 +395,78 @@ class ImageDataset(CustomDataset):
     # SUPERPIXEL fallback
     # ------------------------------------------------------------------
     def _detect_superpixels(self, image_path: str, n_segments: int = 50):
-        from skimage.segmentation import slic
-        from skimage.io import imread
+        import cv2
         import numpy as np
+        from PIL import Image
+        from skimage.segmentation import slic
 
         area_x, area_y = self.config.get_area_of_interest_size()
-        img = imread(image_path)
+
+        with Image.open(image_path) as pil_image:
+            pil_image.seek(0)
+            img = np.asarray(pil_image.convert("RGB"))
+
         h, w = img.shape[:2]
 
-        segments = slic(img, n_segments=n_segments, compactness=10)
+        segments = slic(
+            img,
+            n_segments=n_segments,
+            compactness=10,
+            start_label=0,
+            channel_axis=-1,
+        )
+
         detections = []
-
         for seg_id in np.unique(segments):
-            ys, xs = np.where(segments == seg_id)
-            x_min, x_max = xs.min(), xs.max()
-            y_min, y_max = ys.min(), ys.max()
 
+            segment_mask = (segments == seg_id).astype(np.uint8)
+
+            contours, _ = cv2.findContours(
+                segment_mask,
+                mode=cv2.RETR_EXTERNAL,
+                method=cv2.CHAIN_APPROX_NONE,
+            )
+
+            if not contours:
+                continue
+            contour = max(contours, key=cv2.contourArea)
+            contour_xy = contour.reshape(-1, 2)
+
+            if contour_xy.shape[0] < 3:
+                continue
+
+            contour_for_arc = contour_xy.astype(np.float32).reshape(-1, 1, 2)
+
+            perimeter = cv2.arcLength(
+                contour_for_arc,
+                closed=True,
+            )
+
+            epsilon = 0.002 * perimeter
+
+            approx = cv2.approxPolyDP(
+                contour_for_arc,
+                epsilon,
+                closed=True,
+            ).reshape(-1, 2)
+
+            if approx.shape[0] < 3:
+                approx = contour_xy
+            contour_row_col = np.column_stack(
+                (approx[:, 1], approx[:, 0])
+            )
+
+            polygon = _contour_to_centered_polygon(
+                contour=contour_row_col,
+                img_w=w,
+                img_h=h,
+                area_x=area_x,
+                area_y=area_y,
+            )
             detections.append({
                 "class": "superpixel",
                 "conf": 1.0,
-                "bbox": _to_centered_bbox_from_tl(
-                    x_min * (area_x / w),
-                    y_min * (area_y / h),
-                    x_max * (area_x / w),
-                    y_max * (area_y / h),
-                    area_x, area_y
-                )
+                "polygon": polygon
             })
 
         return detections

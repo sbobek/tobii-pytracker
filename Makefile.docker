@@ -1,0 +1,42 @@
+.PHONY: docker-build docker-up docker-down docker-logs docker-shell docker-dev docker-stop docker-help
+
+# Docker targets for easy management
+
+docker-help:
+	@echo "Tobii PyTracker Docker Commands"
+	@echo "===================================="
+	@echo ""
+	@echo "make docker-build    - Build the Docker image"
+	@echo "make docker-up       - Start the container"
+	@echo "make docker-down     - Stop the container"
+	@echo "make docker-dev      - Start in development mode with hot reload"
+	@echo "make docker-logs     - View container logs"
+	@echo "make docker-shell    - Open an interactive shell in the container"
+	@echo "make docker-stop     - Stop all containers"
+	@echo ""
+	@echo "Access GUI via VNC at localhost:5900"
+	@echo ""
+
+docker-build:
+	docker-compose build
+
+docker-up:
+	docker-compose up -d
+	@echo "Container started"
+	@echo "VNC server: localhost:5900"
+
+docker-down:
+	docker-compose down
+
+docker-dev:
+	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+docker-logs:
+	docker-compose logs -f tobii-pytracker
+
+docker-shell:
+	docker-compose run --rm tobii-pytracker /bin/bash
+
+docker-stop:
+	docker-compose down
+	@echo "All containers stopped"

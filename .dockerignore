@@ -1,0 +1,16 @@
+.git
+.idea
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints
+.venv
+venv
+env
+dist
+build
+*.egg-info
+output
+analysis_outputs
+.DS_Store
