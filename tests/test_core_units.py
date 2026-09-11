@@ -564,6 +564,7 @@ class TestModalities(unittest.TestCase):
                             "time_series": {
                                 "path": str(csv_path),
                                 "label_column_name": "label",
+                                "bbox_model": "sample",
                             }
                         },
                         "display": {

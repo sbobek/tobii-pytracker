@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import result
 import pandas as pd
 import yaml
 import json
@@ -179,7 +180,7 @@ class TestDataLoaderCoverage(unittest.TestCase):
                 data_csv = subject_dir / "data.csv"
                 df = pd.DataFrame({
                     "slide_number": [1],
-                    "gaze_data": ["[]"],
+                    "gaze_data": ["[{\"gaze_x_left\": 100.0, \"gaze_y_left\": 200.0, \"gaze_x_right\": null, \"gaze_y_right\": null, \"pupil_left\": 2.5, \"pupil_right\": null, \"timestamp\": 1234567890.0}]"],
                     "screenshot_file": ["img1.png"],
                 })
                 df.to_csv(data_csv, sep=";", index=False)
@@ -187,8 +188,8 @@ class TestDataLoaderCoverage(unittest.TestCase):
             loader = DataLoader(config, root=tmp_path)
             result = loader.get_all_data(flatten=True)
             
-            self.assertIn("subject_1", result)
-            self.assertIn("subject_2", result)
+            self.assertIn("subject_1", result["set_name"].values)
+            self.assertIn("subject_2", result["set_name"].values)
 
     def test_add_column_with_func_exception(self):
         with tempfile.TemporaryDirectory() as tmp:
