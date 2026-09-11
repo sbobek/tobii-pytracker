@@ -1,0 +1,39 @@
+.PHONY: test test-bbox test-install test-coverage clean-test
+
+# Install test dependencies
+test-install:
+	pip install -r tests/requirements-test.txt
+
+# Run all tests
+test:
+	python -m pytest tests/ -v
+
+# Run only bbox analysis tests
+test-bbox:
+	python -m pytest tests/test_bbox_analysis.py -v
+
+# Run tests with coverage report
+test-coverage:
+	python -m pytest tests/ --cov=src/tobii_pytracker --cov-report=html --cov-report=term
+
+# Run tests using unittest (no pytest required)
+test-unittest:
+	python -m unittest discover -s tests -p "test_*.py" -v
+
+# Clean test artifacts
+clean-test:
+	rm -rf .pytest_cache
+	rm -rf htmlcov
+	rm -rf .coverage
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete
+
+# Help
+help:
+	@echo "Available test commands:"
+	@echo "  make test-install     - Install test dependencies"
+	@echo "  make test            - Run all tests with pytest"
+	@echo "  make test-bbox       - Run only bbox analysis tests"
+	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo "  make test-unittest   - Run tests with unittest (no pytest)"
+	@echo "  make clean-test      - Clean test artifacts"

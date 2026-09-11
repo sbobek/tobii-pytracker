@@ -1,7 +1,11 @@
 import os
 import yaml
+from pathlib import Path
+
 class CustomConfig:
     def __init__(self, filename):
+        self.config_file = Path(filename).resolve()
+        self.config_dir = self.config_file.parent
         self.config = self.read_config(filename)
         self.dataset_type = None  # set later
         self.dataset_path = None
@@ -29,7 +33,7 @@ class CustomConfig:
             self.get_text_dataset_config()
         elif self.dataset_type == "time_series":
             self.get_time_series_dataset_config()
-        
+
         self.dataset_path = self.config["dataset"][self.dataset_type]["path"]
 
         self.get_monitor_config()
