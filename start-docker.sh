@@ -35,12 +35,6 @@ fi
 echo "Docker and Docker Compose are installed"
 echo ""
 
-HOST_UID=$(id -u)
-HOST_GID=$(id -g)
-echo "Using UID=$HOST_UID, GID=$HOST_GID for file permissions"
-echo ""
-export HOST_UID HOST_GID
-
 echo "Starting Tobii PyTracker..."
 $COMPOSE_CMD up --build
 
