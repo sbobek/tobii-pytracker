@@ -15,9 +15,10 @@ def prepare_monitor(config):
 
 def prepare_window(config, monitor):
     window = visual.Window(
-        fullscr=True, screen=0, size=monitor.getSizePix(),
+        fullscr=True, size=monitor.getSizePix(),checkTiming=False,
         winType='pyglet', allowGUI=True, allowStencil=False,
         monitor=monitor.name, color='black',
+        screen=config.get_monitor_config().get("display_number", 0),
         colorSpace='rgb', blendMode='avg', useFBO=True, units='pix')
 
     return window
@@ -161,106 +162,27 @@ def draw_window(config, window, sample, dataset, buttons, focus_time, output_fol
     output_screenshot_path = save_screenshot(
         config,
         window,
-        sample.get("data"),
-        dataset.is_text,
+        sample,
         output_folder
     )
 
     return output_screenshot_path,bboxes
 
 
-# def draw_window(config, window, data, is_text, buttons, focus_time, output_folder, border_width=5):
-#     button_config = config.get_button_config()
-#     fixation_config = config.get_fixation_dot_config()
-#     area_x, area_y = config.get_area_of_interest_size()
-#     win_width, win_height = window.size
-
-#     # --- Stimulus area in center (black rectangle) ---
-#     data_area = visual.Rect(
-#         win=window,
-#         width=area_x + border_width,
-#         height=area_y + border_width,
-#         pos=(0, 0),
-#         fillColor='black',  # dark background
-#         lineColor='black'
-#     )
-#     data_area.draw()
-
-#     # --- White fixation dot in the center ---
-#     fixation_dot = visual.Circle(
-#         win=window,
-#         radius=fixation_config["size"],           # small, visible dot
-#         edges=32,
-#         fillColor=fixation_config["color"],
-#         lineColor=fixation_config["color"],
-#         pos=(0, 0)
-#     )
-#     fixation_dot.draw()
-
-#     window.flip()
-#     core.wait(focus_time)
-
-#     # --- Draw buttons at the bottom ---
-#     bottom_y = -win_height / 2 + 50  # 50 px from bottom
-#     num_buttons = len(buttons) - 1  # exclude exit button
-#     spacing = win_width / (num_buttons + 1)
-
-#     for idx, (rect, text, label) in enumerate(buttons[:-1]):  # skip exit button
-#         x_pos = -win_width / 2 + (idx + 1) * spacing
-#         rect.pos = (x_pos, bottom_y)
-#         text.pos = (x_pos, bottom_y)
-#         rect.draw()
-#         text.draw()
-
-#     # --- Exit button top-right ---
-#     exit_button = buttons[-1]
-#     rect, text, _ = exit_button
-#     rect.pos = (win_width / 2 - 60, win_height / 2 - 60)  # 60 px margin
-#     text.pos = (win_width / 2 - 60, win_height / 2 - 60)
-#     rect.draw()
-#     text.draw()
-
-#     # --- Draw stimulus again (image or text) ---
-#     if is_text:
-#         text_size = fit_text_to_area(window, data, area_x, area_y, 35)
-#         text_stim = visual.TextStim(
-#             win=window,
-#             text=data,
-#             pos=(0, 0),
-#             height=text_size,
-#             color="white",
-#             bold=False,
-#             antialias=True
-#         )
-#         data_area.draw()
-#         text_stim.draw()
-#     else:
-#         image_stim = visual.ImageStim(
-#             win=window,
-#             image=data,
-#             size=(area_x, area_y),
-#             pos=(0, 0)
-#         )
-#         data_area.draw()
-#         image_stim.draw()
-
-#     window.flip()
-#     output_screenshot_path = save_screenshot(config, window, data, is_text, output_folder)
-
-#     return output_screenshot_path
 
 
-def save_screenshot(config, window, data, is_text, output_folder):
+def save_screenshot(config, window, data, output_folder):
     screenshot = window._getFrame(buffer='front')
 
     monitor_config = config.get_monitor_config()
     resolution_x, resolution_y = monitor_config["resolution"]
     area_x, area_y = config.get_area_of_interest_size()
 
-    if is_text:
-        screenshot_path = os.path.join(output_folder, data[:20]) + '.png'
+    if data["id"].lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+        ext=""
     else:
-        screenshot_path = os.path.join(output_folder, os.path.basename(data))
+        ext=".png"
+    screenshot_path = os.path.join(output_folder, data["id"] + ext)
 
     crop_box = (
         resolution_x/2 - area_x/2,
@@ -270,7 +192,6 @@ def save_screenshot(config, window, data, is_text, output_folder):
     )
 
     screenshot.crop(crop_box).save(screenshot_path, 'PNG')
-    #screenshot.save(screenshot_path, 'PNG')
     return screenshot_path
 
 

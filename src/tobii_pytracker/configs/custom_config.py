@@ -147,6 +147,9 @@ class CustomConfig:
             for field in required_fields:
                 if field not in monitor_config:
                     raise KeyError(f"Missing required monitor field: {field}")
+                
+            if "display_number" not in monitor_config:
+                monitor_config["display_number"] = 0  # default to 0 if not specified
 
             resolution = monitor_config["resolution"]
             if not isinstance(resolution, list) or len(resolution) != 2:

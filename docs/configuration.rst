@@ -1,385 +1,457 @@
-
-
 Configuration
-=================
+=============
 
-Tobii-Pytracker uses a YAML configuration file to set up various parameters for eye-tracking experiments and data collection. This file allows users to customize settings such as monitor specifications, GUI options, areas of interest, and output preferences.
+Tobii-Pytracker uses YAML configuration files to define the dataset, display,
+output, model, participant instructions, and eye-tracker settings used during an
+experiment.
 
-You need to prepare two separate configuration files:
-1. Main configuration file (e.g., `config.yaml`): This file contains general settings for the experiment, including monitor details, GUI options, areas of interest, and output folder specifications.
-2. Eyetracker configuration file (e.g., `eyetracker_config.yaml`): This file includes settings specific to the Tobii eye tracker, such as sampling rate, data streams to record, and calibration options. For details on the calibration options, refer to the :ref:`calibration section <calibration>`.
+Two configuration files are used:
 
-The default version of the files can be found in the `configs/` directory of the Tobii-Pytracker repository. You can copy these files and modify them according to your experimental requirements.
+1. A main configuration file, for example ``config.yaml``, which defines the
+   dataset and experiment interface.
+2. An eye-tracker configuration file, for example
+   ``eyetracker_config.yaml``, which defines the eye-tracker device, recorded
+   streams, sampling, and calibration settings. For calibration details, see
+   :ref:`calibration`.
 
-Main Configuration file
----------------------------
+Default configuration files are available in the ``configs/`` directory of the
+Tobii-Pytracker repository. Copy them and adjust the values to the experimental
+setup rather than editing the defaults directly.
 
-The main file consists of several sections:
+Main configuration file
+-----------------------
 
-1. `dataset`: Specifies the path to the dataset used in the experiment. You can also define text-related parameters if applicable.
-2. `display`: Contains monitor specifications (name, resolution, width, distance) and GUI options (button size, margin, color, fixation dot size and color, area of interest dimensions).
-3. `output`: Defines the folder where output data will be saved.
-4. `model`: Specifies the folder containing models, as well as the module and class names for custom models used in the experiment.
-5. `instructions`: Provides introductory and concluding instructions for participants in the experiment.
+The main configuration file contains the following top-level sections:
 
-The example of the main configuration file is shown below:
+* ``dataset``: selects one stimulus modality and configures its data source and
+  built-in bounding-box model.
+* ``display``: defines the monitor geometry and graphical user interface.
+* ``output``: defines the output directory.
+* ``bbox_model``: optionally loads a custom runtime bounding-box model.
+* ``instructions``: defines the introductory and concluding participant text.
 
-.. code-block:: yaml
-
-    dataset:
-    path: datasets/pdt
-
-    display:
-    monitor: 
-        name: spectrum_monitor
-        resolution:
-        - 1536
-        - 960
-        width: 35
-        distance: 60
-    gui:
-        button:
-        size:
-            - 250
-            - 100
-        margin: 20
-        color: lightgrey
-        text:
-            color: black
-            size: 30
-        fixation_dot: 
-        size: 10
-        color: white
-        aoe:
-        - 750
-        - 750
-
-    output:
-      folder: output
-
-    bbox_model:
-      folder: custom_runtime_models
-      module: custom_yolo_model
-      class: CustomYoloModel
-
-    instructions:
-      intro:
-          - "Welcome to the study!"
-          - ""
-          - "In this experiment, you will see a series of images or text samples."
-          - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
-          - ""
-          - "Press SPACE to begin."
-      outro:
-          - "Thank you for participating in this study!"
-          - ""
-          - "Your responses and recordings have been saved."
-          - "You may now close the window or press ESC to exit."
-
-
-Below is a detailed explanation of each section and its parameters, along with examples.
-
-1. ``dataset``
+Complete example
 ~~~~~~~~~~~~~~~~
 
-Specifies the dataset used for the experiment, including the path to stimuli and labeling details.  
-The format of the dataset depends on whether you are using **images** or **text-based stimuli**.
-
-**Example:**
-
-.. code-block:: yaml
-
-    dataset:
-      path: datasets/pdt
-
-**Parameters:**
-
-- **``path``** (*str*):  
-  Path to the dataset directory or CSV file containing experimental stimuli.
-
-**Image Datasets**
-
-Image datasets must be organized so that each **subdirectory represents a class** (category).  
-The GUI automatically generates response buttons according to the class labels extracted from these subdirectory names.
-
-**Example directory structure:**
-
-.. code-block:: text
-
-    ├── dataset
-    │   ├── category1
-    │   │   ├── file1.jpg
-    │   │   ├── file2.jpg
-    │   │   └── ...
-    │   ├── category2
-    │   │   ├── file1.jpg
-    │   │   ├── file2.jpg
-    │   │   └── ...
-    │   └── ...
-    └── ...
-
-**Notes:**
-
-- The GUI layout and button labels will automatically match the subfolder names (``category1``, ``category2``, ...).  
-- If you are using a **custom model**, ensure that its output class names **exactly match** these subfolder names.
-
-**Text Datasets**
-
-Text-based datasets must be provided in **CSV format**.  
-Each row represents a text sample, and the column containing class labels must have a **header name** that matches the configuration setting.
-
-**Example configuration:**
+The example below activates an image dataset. The text and time-series examples
+are included as comments and can be enabled by replacing the active ``image``
+subsection. Only one dataset subsection should be active for a study.
 
 .. code-block:: yaml
 
-    dataset:
-      path: path/to/file.csv
-      text:
-        label_column_name: label_column_name
-        text_column_name: text_column_name
+   dataset:
+     image:
+       bbox_model: superpixel  # grid | superpixel | saliency
+       path: datasets/vehicles
 
-**Example file structure:**
+     # text:
+     #   label_column_name: sentiment
+     #   text_column_name: selected_text
+     #   color: white
+     #   background_color: black
+     #   bbox_model: word  # word | line | sentence
+     #   path: datasets/twitter/tweets.csv
+
+     # time_series:
+     #   # Dataset: ECG200 (UCR Time Series Archive)
+     #   # License: CC BY 4.0
+     #   # Source: https://www.timeseriesclassification.com
+     #   label_column_name: class
+     #   bbox_model: sample  # sample | window
+     #   path: datasets/ecg/ecg200.csv
+
+   display:
+     monitor:
+       name: spectrum_monitor
+       resolution:
+         - 2560
+         - 1440
+       width: 35
+       distance: 60
+       display_number: 0
+     gui:
+       button:
+         size:
+           - 250
+           - 100
+         margin: 20
+         color: lightgrey
+         text:
+           color: black
+           size: 30
+       fixation_dot:
+         size: 10
+         color: white
+       aoe:
+         - 750
+         - 750
+
+   output:
+     folder: output
+
+   # bbox_model:
+   #   folder: custom_runtime_models
+   #   module: custom_yolo_model
+   #   class: CustomYoloModel
+
+   instructions:
+     intro:
+       - "Welcome to the study!"
+       - ""
+       - "In this experiment, you will see a series of images or text samples."
+       - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
+       - ""
+       - "Click on the window and press SPACE to begin."
+     outro:
+       - "Thank you for participating in this study!"
+       - ""
+       - "Your responses and recordings have been saved."
+       - "You may now close the window or press ESC to exit."
+
+Dataset configuration
+---------------
+
+The ``dataset`` section now uses a modality-specific subsection. Select exactly
+one of the following subsections:
+
+* ``image`` for image stimuli stored in class directories;
+* ``text`` for text stimuli loaded from a CSV file;
+* ``time_series`` for time-series samples loaded from a CSV file.
+
+The selected subsection determines which dataset class loads and presents the
+stimuli. Each modality also defines its own built-in ``bbox_model`` options.
+Bounding boxes are expressed in the stimulus coordinate system used by the
+experiment and can be included in the recorded output when bounding-box
+calculation is enabled.
+
+Image datasets
+~~~~~~~~~~~~~~
+
+Image datasets are configured under ``dataset.image``.
+
+.. code-block:: yaml
+
+   dataset:
+     image:
+       bbox_model: superpixel
+       path: datasets/vehicles
+
+Parameters
+^^^^^^^^^^
+
+``path`` (str)
+   Path to the root directory containing the image dataset.
+
+``bbox_model`` (str)
+   Built-in method used to divide or identify image regions. Supported values
+   are ``grid``, ``superpixel``, and ``saliency``.
+
+The image directory must contain one subdirectory per class. The class labels
+are obtained from the subdirectory names and are used to generate the response
+options in the experiment interface.
 
 .. code-block:: text
 
-    ├── dataset.csv
-    └── ...
+   datasets/vehicles/
+   |-- car/
+   |   |-- image_001.jpg
+   |   `-- image_002.jpg
+   |-- motorcycle/
+   |   |-- image_001.jpg
+   |   `-- image_002.jpg
+   `-- truck/
+       |-- image_001.jpg
+       `-- image_002.jpg
 
-**Notes:**
+When a custom model is used, its class names must match the image subdirectory
+names exactly.
 
-- The **first line** of the CSV file **must be a header**.  
-- The GUI will automatically generate labels and response options based on the **unique values** in the column specified as ``label_column_name``.  
-- The column defined as ``text_column_name`` will be displayed as the main text stimulus during the experiment.
+Text datasets
+~~~~~~~~~~~~~
 
----
+Text datasets are configured under ``dataset.text`` and loaded from a CSV file.
+Each row represents one stimulus.
+
+.. code-block:: yaml
+
+   dataset:
+     text:
+       label_column_name: sentiment
+       text_column_name: selected_text
+       color: white
+       background_color: black
+       bbox_model: word
+       path: datasets/twitter/tweets.csv
+
+Parameters
+^^^^^^^^^^
+
+``path`` (str)
+   Path to the CSV file containing the text stimuli.
+
+``label_column_name`` (str)
+   Name of the CSV column containing the class label. Unique values from this
+   column are used as response classes.
+
+``text_column_name`` (str)
+   Name of the CSV column containing the text displayed to the participant.
+
+``color`` (str)
+   Color of the displayed text.
+
+``background_color`` (str)
+   Background color used when presenting the text stimulus.
+
+``bbox_model`` (str)
+   Granularity of the text regions. Supported values are ``word``, ``line``,
+   and ``sentence``.
+
+The first row of the CSV file must contain column names, including the columns
+specified by ``label_column_name`` and ``text_column_name``.
+
+Time-series datasets
+~~~~~~~~~~~~~~~~~~~~
+
+Time-series datasets are configured under ``dataset.time_series`` and loaded
+from a CSV file.
+
+.. code-block:: yaml
+
+   dataset:
+     time_series:
+       label_column_name: class
+       bbox_model: sample
+       path: datasets/ecg/ecg200.csv
+
+Parameters
+^^^^^^^^^^
+
+``path`` (str)
+   Path to the CSV file containing the time-series samples.
+
+``label_column_name`` (str)
+   Name of the CSV column containing the class assigned to each series.
+
+``bbox_model`` (str)
+   Granularity at which time-series regions are represented. Supported values
+   are ``sample`` and ``window``.
+
+The CSV file must include a header and the label column specified by
+``label_column_name``. Remaining data columns are interpreted as time-series
+values by the time-series dataset loader.
 
 .. _display_configuration:
 
-2. ``display``
-~~~~~~~~~~~~~~~~
+Display Configuration
+--------------
 
-Defines monitor characteristics and graphical user interface (GUI) settings.  
-This section includes two main subsections: ``monitor`` and ``gui``.
+The ``display`` section contains the ``monitor`` and ``gui`` subsections.
 
-**a. monitor**
-
-Specifies hardware and geometric properties of the monitor.
-
-**Example:**
+Monitor configuration
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: yaml
 
-    display:
-      monitor:
-        name: spectrum_monitor
-        resolution:
-          - 1536
-          - 960
-        width: 35
-        distance: 60
+   display:
+     monitor:
+       name: spectrum_monitor
+       resolution:
+         - 2560
+         - 1440
+       width: 35
+       distance: 60
+       display_number: 0
 
-**Parameters:**
+Parameters
+^^^^^^^^^^
 
-- **``name``** (*str*):  
-  Identifier for the monitor used in the experiment. This can be any descriptive name.
-- **``resolution``** (*list[int, int]*):  
-  Screen resolution in pixels ``[width, height]``. Note that in case of multiple screens, it assumes the resolution of the primary monitor. If the resolution is provided incorrectly , the application will display correctly, but the screenshots taken during the experiment may have incorrect dimensions or capture incorrect regions.
-- **``width``** (*float*):  
-  Physical width of the display in centimeters.
-- **``distance``** (*float*):  
-  Distance between the participant and the display (in centimeters).
+``name`` (str)
+   Descriptive identifier for the monitor.
 
-**b. gui**
+``resolution`` (list[int, int])
+   Screen resolution in pixels as ``[width, height]``. An incorrect resolution
+   can cause screenshots or captured regions to have incorrect dimensions.
 
-Configures visual elements displayed during the experiment, such as buttons, fixation dots, and areas of interest (AOE).
+``width`` (float)
+   Physical display width in centimetres.
 
-**Example:**
+``distance`` (float)
+   Distance between the participant and the display in centimetres.
 
-.. code-block:: yaml
+``display_number`` (int)
+   Index of the display on which the experiment window is presented. This is
+   particularly relevant in multi-monitor setups.
 
-      gui:
-        button:
-          size:
-            - 250
-            - 100
-          margin: 20
-          color: lightgrey
-          text:
-            color: black
-            size: 30
-        fixation_dot:
-          size: 10
-          color: white
-        aoe:
-          - 750
-          - 750
-
-**Parameters:**
-
-- **``button``**:  
-  Defines button appearance and behavior.
-
-  - **``size``** (*list[int, int]*): Dimensions ``[width, height]`` in pixels.  
-  - **``margin``** (*int*): Padding or spacing around buttons (in pixels).  
-  - **``color``** (*str*): Background color.  
-  - **``text.color``** (*str*): Text color.  
-  - **``text.size``** (*int*): Text font size.
-
-- **``fixation_dot``**:  
-  Defines the central dot shown before or between trials.
-
-  - **``size``** (*int*): Diameter in pixels.  
-  - **``color``** (*str*): Dot color.
-
-- **``aoe``** (*list[int, int]*):  
-  Area of interest size ``[width, height]`` in pixels, determining where stimuli appear. The size of aoe should be chosen based on the expected gaze distribution and the nature of the stimuli to ensure accurate data collection. The stimuli will be centered within this area and scaled to fit the defined dimensions.
-
----
-
-3. ``output``
-~~~~~~~~~~~~~~~~
-
-Defines where experimental results and recordings are saved.
-
-**Example:**
+GUI configuration
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: yaml
 
-    output:
-      folder: output
+   display:
+     gui:
+       button:
+         size:
+           - 250
+           - 100
+         margin: 20
+         color: lightgrey
+         text:
+           color: black
+           size: 30
+       fixation_dot:
+         size: 10
+         color: white
+       aoe:
+         - 750
+         - 750
 
-**Parameters:**
+Parameters
+^^^^^^^^^^
 
-- **``folder``** (*str*):  
-  Directory where all output files (gaze data, responses, logs) are stored.
+``button.size`` (list[int, int])
+   Button dimensions as ``[width, height]`` in pixels.
 
----
+``button.margin`` (int)
+   Spacing around buttons in pixels.
 
-4. ``bbox_model``
-~~~~~~~~~~~~~~~~
+``button.color`` (str)
+   Button background color.
 
-Specifies the model used in the experiment, including its location and class definitions.
-Every dataset has build-in bounding box detection mode, so this filed is optional and can be omitted.
+``button.text.color`` (str)
+   Button text color.
 
-**Example:**
+``button.text.size`` (int)
+   Button text size.
 
-.. code-block:: yaml
+``fixation_dot.size`` (int)
+   Fixation-dot size in pixels.
 
-    bbox_model:
-      folder: custom_runtime_models
-      module: custom_yolo_model
-      class: CustomYoloModel
+``fixation_dot.color`` (str)
+   Fixation-dot color.
 
-**Parameters:**
+``aoe`` (list[int, int])
+   Area of experiment size as ``[width, height]`` in pixels. Stimuli are centred
+   and scaled to fit this area.
 
-- **``folder``** (*str*):  
-  Path to the folder containing trained model files.
-- **``module``** (*str*):  
-  Name of the Python module implementing the model.
-- **``class``** (*str*):  
-  Name of the model class defined in the module.
-
-**Note:**  
-When using a **custom model**, ensure that its class labels **exactly match** the subfolder names in the dataset to maintain consistency between predicted and displayed classes.
-
----
-
-Custom Model
-~~~~~~~~~~~~~~~~
-
-The ``CustomModel`` class (located in ``runtime_models/custom_model.py``) serves as an **abstract base class** that defines the required interface for all custom models.  
-By inheriting from ``CustomModel`` and implementing its methods, your model can seamlessly integrate with the Tobii-Pytracker pipeline.
-
-**Required Methods:**
-
-- **``prepare_model(self)``**  
-  Load and prepare the model for prediction.
-
-- **``predict(self, input_data)``**  
-  Run a forward pass and return raw model predictions.
-
-- **``process(self, path)``**  
-  Post-process the prediction results and return formatted output for storage or display.
-
-**Creating Your Own Model Module**
-
-To create your own model:
-
-1. Create a new Python file within the ``custom_runtime_models/`` directory  in folder where you run a script (e.g., ``custom_runtime_models/my_custom_model.py``).  
-2. Import the ``CustomModel`` base class:
-
-   .. code-block:: python
-
-       from runtime_models.custom_model import CustomModel
-
-3. Define your new model class inheriting from ``CustomModel``:
-
-   .. code-block:: python
-
-       class MyCustomModel(CustomModel):
-
-           def prepare_model(self):
-               # Load and prepare model for prediction
-               self.logger.debug("Preparing MyCustomModel...")
-               self.model = ...
-               self.logger.debug("Model preparation done.")
-
-           def predict(self, input_data):
-               # Run prediction with the loaded model
-               predictions = ...
-               return predictions
-
-           def process(self, data):
-               # Post-process the prediction and return formatted results
-               predictions = self.predict(data)
-               processed_predictions = ...
-               return processed_predictions
-
-**Important:**  
-The main processing pipeline uses the ``process()`` method to execute and store model predictions.  
-Ensure this method returns data in the expected format for downstream components.
-
----
-
-5. ``instructions``
-~~~~~~~~~~~~~~~~~~~~
-
-Defines text messages shown before (intro) and after (outro) the experiment.  
-These are displayed within the GUI and can include empty strings for spacing.
-
-**Example:**
+Output Folder
+-------------
 
 .. code-block:: yaml
 
-    instructions:
-      intro:
-        - "Welcome to the study!"
-        - ""
-        - "In this experiment, you will see a series of images or text samples."
-        - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
-        - ""
-        - "Press SPACE to begin."
-      outro:
-        - "Thank you for participating in this study!"
-        - ""
-        - "Your responses and recordings have been saved."
-        - "You may now close the window or press ESC to exit."
+   output:
+     folder: output
 
-**Parameters:**
+``folder`` (str)
+   Directory in which experiment outputs, including gaze data, responses, and
+   logs, are saved.
 
-- **``intro``** (*list[str]*):  
-  Lines of text displayed before the experiment begins.
-- **``outro``** (*list[str]*):  
-  Lines of text displayed after the experiment ends.
+BoundingBox Model
+-----------------
 
----
+The optional top-level ``bbox_model`` section loads a custom runtime model. It
+is different from the modality-specific ``dataset.<modality>.bbox_model``
+setting, which selects one of the built-in region-generation methods.
+
+Omit the top-level section when a built-in dataset bounding-box method is
+sufficient.
+
+.. code-block:: yaml
+
+   bbox_model:
+     folder: custom_runtime_models
+     module: custom_yolo_model
+     class: CustomYoloModel
+
+Parameters
+^^^^^^^^^^
+
+``folder`` (str)
+   Path to the directory containing the custom Python module and any required
+   model resources.
+
+``module`` (str)
+   Importable Python module name, without the ``.py`` extension.
+
+``class`` (str)
+   Name of the custom model class defined in the module.
+
+Custom model interface
+~~~~~~~~~~~~~~~~~~~~~~
+
+A custom runtime model should inherit from ``CustomModel`` and implement the
+interface required by the processing pipeline:
+
+``prepare_model(self)``
+   Loads and prepares the model.
+
+``predict(self, input_data)``
+   Runs model inference and returns predictions.
+
+``process(self, data)``
+   Converts predictions into the format expected by downstream components.
+
+Example skeleton:
+
+.. code-block:: python
+
+   from runtime_models.custom_model import CustomModel
 
 
-Eyetracker configuration file
--------------------------------
-The eye tracker configuration file should include the fields required by launchHubServer from the psychopy.iohub module. Refer to the PsychoPy documentation for more details on the specific settings.
-The default eyetracker configuration file can be found in the `configs/eyetracker_config.yaml` file of the Tobii-Pytracker repository.
+   class MyCustomModel(CustomModel):
+       def prepare_model(self):
+           self.model = ...
 
-This file also includes mouse emulation settings, which allow you to simulate eye-tracking data using mouse movements. This is particularly useful for testing and development purposes when an actual eye tracker is not available.
+       def predict(self, input_data):
+           predictions = ...
+           return predictions
 
-In most cases, these default settings should work without any modifications.
+       def process(self, data):
+           predictions = self.predict(data)
+           processed_predictions = ...
+           return processed_predictions
+
+Place the module in the configured ``folder`` relative to the directory from
+which Tobii-Pytracker is run. Ensure that the class labels returned by a custom
+model match the dataset classes where class matching is required.
+
+Instructions
+-------------------
+
+The ``instructions`` section defines the text displayed before and after the
+study. Each item is displayed as a separate line; an empty string adds a blank
+line.
+
+.. code-block:: yaml
+
+   instructions:
+     intro:
+       - "Welcome to the study!"
+       - ""
+       - "In this experiment, you will see a series of images or text samples."
+       - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
+       - ""
+       - "Click on the window and press SPACE to begin."
+     outro:
+       - "Thank you for participating in this study!"
+       - ""
+       - "Your responses and recordings have been saved."
+       - "You may now close the window or press ESC to exit."
+
+``intro`` (list[str])
+   Lines displayed before the experiment begins.
+
+``outro`` (list[str])
+   Lines displayed after the experiment ends.
+
+Eye-tracker configuration file
+------------------------------
+
+The eye-tracker configuration file contains the fields required by
+``psychopy.iohub.launchHubServer``. It defines the eye-tracker connection,
+recorded data streams, and calibration-related settings. See the PsychoPy ioHub
+documentation and :ref:`calibration` for the available options.
+
+The default file is available at ``configs/eyetracker_config.yaml`` in the
+Tobii-Pytracker repository. It also contains mouse-emulation settings, allowing
+the experiment to be tested without a physical eye tracker. In most cases, the
+default settings can be used without modification.

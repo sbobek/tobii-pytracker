@@ -29,13 +29,12 @@ Analyzers
     tobii_pytracker.analyze.SaccadeAnalyzer
     tobii_pytracker.analyze.EntropyAnalyzer
     tobii_pytracker.analyze.ClusterAnalyzer
-    tobii_pytracker.analyze.ConceptAnalyzer
     tobii_pytracker.analyze.ScanpathsAnalyzer
     tobii_pytracker.analyze.VoiceTranscription
 
 
 
-.. _datasetss_api:
+.. _datasets_api:
 
 Datasets
 -------------
@@ -44,6 +43,9 @@ Datasets
     :nosignatures:
 
     tobii_pytracker.datasets.CustomDataset
+    tobii_pytracker.datasets.ImageDataset
+    tobii_pytracker.datasets.TextDataset
+    tobii_pytracker.datasets.TimeSeriesDataset
 
 
 

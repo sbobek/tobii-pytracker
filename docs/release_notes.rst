@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+0.2.0 (2026-09-02)
+* Added VoiceTranscriptionAnalyzer for analyzing audio recordings and transcriptions
+* Added screen display number configuration option to support multi-monitor setups.
+* Fixed parsing timeseries bounding boxes in DataLoader.
+
 0.1.2 (2025-11-17)
 -------------
 * Fixed documentation of command-line options

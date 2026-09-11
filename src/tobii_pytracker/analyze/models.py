@@ -1329,48 +1329,914 @@ class ClusterAnalyzer:
             plt.close(fig)
 
 
-class ConceptAnalyzer(BaseAnalyzer):
-    """
-    Defines AOI-like (Areas of Interest) concepts from clusters
-    and computes engagement statistics per concept.
-
-    This class operates directly on flattened background data.
-
-    Parameters
-    ----------
-    background_data : pd.DataFrame
-        Combined dataset across subjects, slides, and events.
-    """
-
-    def __init__(self, background_data: pd.DataFrame):
-        super().__init__(background_data)
-
-    # TODO: Implement methods for concept definition and analysis.
-
 
 class ScanpathsAnalyzer(BaseAnalyzer):
     """
-    Analyzes sequential transitions between fixations
-    to characterize scanpaths per slide, set, or globally.
+    Analyzes sequential transitions between fixations.
+
+    Raw gaze data is converted to fixations with ``FixationAnalyzer``. A
+    DataFrame containing fixation results can also be supplied directly.
     """
 
-    def __init__(self, background_data: pd.DataFrame):
-        super().__init__(background_data)
-    # TODO: Implement methods for concept definition and analysis.
+    _result_columns = [
+        "set_name", "slide_index", "from_fixation", "to_fixation",
+        "start_time", "end_time", "transition_duration", "x_start",
+        "y_start", "x_end", "y_end", "distance", "start_duration",
+        "end_duration",
+    ]
+
+    def __init__(self, output_folder: Path):
+        super().__init__(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
+
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "slide",
+    ) -> pd.DataFrame:
+        """Compute ordered transitions between consecutive fixations."""
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("Parameter 'per' must be one of: ['global', 'set', 'slide'].")
+
+        required_group_columns = {"set_name", "slide_index"}
+        missing_groups = required_group_columns - set(background_data.columns)
+        if missing_groups:
+            raise ValueError(
+                f"background_data missing required columns: {sorted(missing_groups)}"
+            )
+
+        fixation_columns = {"fix_start", "fix_end", "duration", "x_mean", "y_mean"}
+        if fixation_columns.issubset(background_data.columns):
+            fixations = background_data.copy()
+        else:
+            gaze_columns = {"avg_gaze_x", "avg_gaze_y", "system_time"}
+            missing_gaze = gaze_columns - set(background_data.columns)
+            if missing_gaze:
+                raise ValueError(
+                    "background_data must contain fixation columns or gaze columns: "
+                    f"{sorted(missing_gaze)}"
+                )
+            fixations = FixationAnalyzer(self.output_folder).analyze(background_data)
+
+        if per == "global":
+            groups = [("global", fixations.sort_values("fix_start"))]
+        elif per == "set":
+            groups = fixations.sort_values("fix_start").groupby("set_name")
+        else:
+            groups = fixations.sort_values("fix_start").groupby(
+                ["set_name", "slide_index"]
+            )
+
+        transitions = []
+        for group_key, group in groups:
+            group = group.sort_values("fix_start").reset_index(drop=True)
+            if len(group) < 2:
+                continue
+
+            for index in range(len(group) - 1):
+                start = group.iloc[index]
+                end = group.iloc[index + 1]
+                record = {
+                    "from_fixation": index,
+                    "to_fixation": index + 1,
+                    "start_time": start["fix_start"],
+                    "end_time": end["fix_start"],
+                    "transition_duration": end["fix_start"] - start["fix_end"],
+                    "x_start": start["x_mean"],
+                    "y_start": start["y_mean"],
+                    "x_end": end["x_mean"],
+                    "y_end": end["y_mean"],
+                    "distance": np.sqrt(
+                        (end["x_mean"] - start["x_mean"]) ** 2
+                        + (end["y_mean"] - start["y_mean"]) ** 2
+                    ),
+                    "start_duration": start["duration"],
+                    "end_duration": end["duration"],
+                }
+
+                if per == "global":
+                    record["set_name"] = start["set_name"]
+                    record["slide_index"] = start["slide_index"]
+                elif per == "set":
+                    record["set_name"] = group_key
+                    record["slide_index"] = start["slide_index"]
+                else:
+                    record["set_name"], record["slide_index"] = group_key
+
+                transitions.append(record)
+
+        self.results = pd.DataFrame(transitions, columns=self._result_columns)
+        return self.results
+
+    def plot_analysis(
+        self,
+        scanpaths: Optional[pd.DataFrame],
+        screenshot_path: Path,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        title: Optional[str] = None,
+        flip_y: bool = True,
+        color: str = "cyan",
+        alpha: float = 0.8,
+        linewidth: float = 2.0,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """Overlay scanpath transitions on a screenshot."""
+        screenshot_path = Path(screenshot_path)
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        df = scanpaths.copy() if scanpaths is not None else self.results
+        if df is None or df.empty:
+            raise ValueError("No scanpath data available. Run analyze() first.")
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None:
+            df = df[df["slide_index"] == slide_index]
+        if df.empty:
+            raise ValueError("No scanpath data matches the provided filters.")
+
+        img = mpimg.imread(screenshot_path)
+        height, width = img.shape[:2]
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.imshow(img, origin="upper")
+
+        for _, row in df.iterrows():
+            x_start = width / 2 + row["x_start"]
+            x_end = width / 2 + row["x_end"]
+            y_start = height / 2 - row["y_start"] if flip_y else height / 2 + row["y_start"]
+            y_end = height / 2 - row["y_end"] if flip_y else height / 2 + row["y_end"]
+            ax.arrow(
+                x_start,
+                y_start,
+                x_end - x_start,
+                y_end - y_start,
+                color=color,
+                alpha=alpha,
+                linewidth=linewidth,
+                head_width=10,
+                length_includes_head=True,
+            )
+
+        ax.set_title(title or f"Scanpath — {set_name or 'All'}, Slide {slide_index or '?'}")
+        ax.axis("off")
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
+   
+
+
+
+
+import re
+import json
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import textwrap
+
+from pathlib import Path
+from typing import Optional, Any, Dict, List
 
 
 class VoiceTranscription(BaseAnalyzer):
     """
-    Transcribes and aligns voice data with gaze events.
+    Transcribes per-slide voice recordings using Whisper and aligns transcript
+    segments with gaze samples based on shared experiment time.
 
-    This is a placeholder implementation — replace transcription
-    logic with a real speech-to-text model as needed.
+    This analyzer operates directly on flattened background_data, similarly
+    to the other analyzers in this module.
+
+    Required columns in background_data
+    -----------------------------------
+    - 'set_name'
+    - 'slide_index'
+    - 'voice_file'
+    - 'voice_start_timestamp'
+    - 'system_time'
+    - 'avg_gaze_x'
+    - 'avg_gaze_y'
+
+    Optional columns that are preserved in output if present
+    --------------------------------------------------------
+    - 'screenshot_file'
+    - 'input_data'
+    - 'classification'
+    - 'user_classification'
+    - 'model_prediction'
+    - 'objects_bboxes'
+
+    Notes
+    -----
+    Alignment is computed as:
+        absolute_segment_time = voice_start_timestamp + audio_relative_time + audio_start_offset_sec
+
+    This assumes that:
+        - 'voice_start_timestamp' was recorded using the same PsychoPy clock
+          as gaze 'system_time'.
     """
 
-    def __init__(self, background_data: pd.DataFrame):
-        super().__init__(background_data)
-    # TODO: Implement methods for concept definition and analysis.
+    def __init__(
+        self,
+        output_folder: Path,
+        loader_root: Optional[Path] = None,
+        model_name: str = "base",
+        language: Optional[str] = None,
+        device: Optional[str] = None,
+        sentence_gap_threshold: float = 0.6,
+        max_sentence_duration: float = 12.0,
+        audio_start_offset_sec: float = 0.0,
+        save_transcripts_json: bool = True,
+        store_gaze_points: bool = True,
+    ):
+        super().__init__(output_folder)
 
+        self.model_name = model_name
+        self.language = language
+        self.device = device
+        self.sentence_gap_threshold = sentence_gap_threshold
+        self.max_sentence_duration = max_sentence_duration
+        self.audio_start_offset_sec = audio_start_offset_sec
+        self.save_transcripts_json = save_transcripts_json
+        self.store_gaze_points = store_gaze_points
+        self._loader_root = loader_root
+
+        self.raw_transcripts: Dict[str, Any] = {}
+        self._whisper_model = None
+
+    # ======================================================
+    # INTERNAL: MODEL LOADING
+    # ======================================================
+    def _load_model(self):
+        """
+        Lazily load Whisper model.
+        """
+        if self._whisper_model is not None:
+            return self._whisper_model
+
+        try:
+            import whisper
+        except ImportError as e:
+            raise ImportError(
+                "VoiceTranscription requires the 'whisper' package. "
+                "Install it with: pip install -U openai-whisper"
+            ) from e
+
+        kwargs = {}
+        if self.device is not None:
+            kwargs["device"] = self.device
+
+        self._whisper_model = whisper.load_model(self.model_name, **kwargs)
+        return self._whisper_model
+
+    # ======================================================
+    # INTERNAL: TEXT HELPERS
+    # ======================================================
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        """
+        Normalize whitespace in text.
+        """
+        if text is None:
+            return ""
+        return re.sub(r"\s+", " ", str(text)).strip()
+
+    @staticmethod
+    def _looks_like_sentence_end(token: str) -> bool:
+        """
+        Heuristic check whether a token likely ends a sentence.
+        """
+        if not isinstance(token, str):
+            return False
+        token = token.strip()
+        return token.endswith((".", "!", "?", ";", ":"))
+    
+    @staticmethod
+    def _truncate_text(text: str, max_chars: int = 140) -> str:
+        text = "" if text is None else str(text)
+        return text if len(text) <= max_chars else text[: max_chars - 3] + "..."
+
+    def _build_sentence_record(
+        self,
+        word_group: List[Dict[str, Any]],
+        sentence_index: int,
+    ) -> Dict[str, Any]:
+        """
+        Build one sentence record from Whisper word-level timestamps.
+        """
+        text = self._normalize_text(
+            " ".join(self._normalize_text(w.get("word", "")) for w in word_group)
+        )
+
+        return {
+            "sentence_index": sentence_index,
+            "sentence_text": text,
+            "rel_start": float(word_group[0]["start"]),
+            "rel_end": float(word_group[-1]["end"]),
+            "duration": float(word_group[-1]["end"]) - float(word_group[0]["start"]),
+            "word_count": len(word_group),
+            "words": word_group,
+        }
+
+    def _words_to_sentences(self, words: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Convert Whisper word-level timestamps into sentence-like chunks.
+
+        Splitting rules:
+        - punctuation suggests end of sentence
+        - large temporal gap between words
+        - max duration exceeded
+        """
+        if not words:
+            return []
+
+        sentences = []
+        current_words = []
+        sentence_index = 0
+
+        for w in words:
+            token = self._normalize_text(w.get("word", ""))
+            start = w.get("start", None)
+            end = w.get("end", None)
+
+            if start is None or end is None or token == "":
+                continue
+
+            if not current_words:
+                current_words.append(w)
+                continue
+
+            prev = current_words[-1]
+            gap = float(start) - float(prev.get("end", start))
+            current_duration = float(end) - float(current_words[0].get("start", start))
+
+            should_split = (
+                gap >= self.sentence_gap_threshold
+                or current_duration >= self.max_sentence_duration
+                or self._looks_like_sentence_end(prev.get("word", ""))
+            )
+
+            if should_split:
+                sentences.append(self._build_sentence_record(current_words, sentence_index))
+                sentence_index += 1
+                current_words = [w]
+            else:
+                current_words.append(w)
+
+        if current_words:
+            sentences.append(self._build_sentence_record(current_words, sentence_index))
+
+        return sentences
+
+    # ======================================================
+    # INTERNAL: TRANSCRIPTION
+    # ======================================================
+    def _transcribe_audio(self, audio_path: Path) -> Dict[str, Any]:
+        """
+        Transcribe audio with Whisper using word timestamps when available.
+        """
+        if not audio_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {audio_path}")
+
+        model = self._load_model()
+
+        result = model.transcribe(
+            str(audio_path),
+            language=self.language,
+            word_timestamps=True,
+            verbose=False,
+        )
+
+        words = []
+        for seg in result.get("segments", []):
+            for w in seg.get("words", []):
+                if "start" in w and "end" in w:
+                    words.append({
+                        "word": w.get("word", ""),
+                        "start": float(w["start"]),
+                        "end": float(w["end"]),
+                        "confidence": w.get("probability", np.nan),
+                    })
+
+        # fallback to segment-level units if word-level timestamps unavailable
+        if words:
+            sentences = self._words_to_sentences(words)
+        else:
+            sentences = []
+            for i, seg in enumerate(result.get("segments", [])):
+                text = self._normalize_text(seg.get("text", ""))
+                if text == "":
+                    continue
+                sentences.append({
+                    "sentence_index": i,
+                    "sentence_text": text,
+                    "rel_start": float(seg.get("start", 0.0)),
+                    "rel_end": float(seg.get("end", 0.0)),
+                    "duration": float(seg.get("end", 0.0)) - float(seg.get("start", 0.0)),
+                    "word_count": len(text.split()),
+                    "words": [],
+                })
+
+        return {
+            "full_text": self._normalize_text(result.get("text", "")),
+            "language": result.get("language", self.language),
+            "segments": result.get("segments", []),
+            "words": words,
+            "sentences": sentences,
+        }
+
+    # ======================================================
+    # INTERNAL: ALIGNMENT
+    # ======================================================
+    def _align_sentences_with_gaze(
+        self,
+        sentences: List[Dict[str, Any]],
+        gaze_subset: pd.DataFrame,
+        voice_start_timestamp: float,
+    ) -> List[Dict[str, Any]]:
+        """
+        Align transcript sentence windows with gaze samples.
+        """
+        aligned = []
+
+        for sent in sentences:
+            abs_start = float(voice_start_timestamp) + self.audio_start_offset_sec + float(sent["rel_start"])
+            abs_end = float(voice_start_timestamp) + self.audio_start_offset_sec + float(sent["rel_end"])
+
+            gaze_in_sentence = gaze_subset[
+                (gaze_subset["system_time"] >= abs_start) &
+                (gaze_subset["system_time"] <= abs_end)
+            ].copy()
+
+            row = {
+                "sentence_index": sent["sentence_index"],
+                "sentence_text": sent["sentence_text"],
+                "rel_start": sent["rel_start"],
+                "rel_end": sent["rel_end"],
+                "abs_start": abs_start,
+                "abs_end": abs_end,
+                "duration": sent["duration"],
+                "word_count": sent["word_count"],
+                "gaze_sample_count": int(len(gaze_in_sentence)),
+                "avg_gaze_x_mean": float(gaze_in_sentence["avg_gaze_x"].mean()) if not gaze_in_sentence.empty else np.nan,
+                "avg_gaze_y_mean": float(gaze_in_sentence["avg_gaze_y"].mean()) if not gaze_in_sentence.empty else np.nan,
+                "avg_gaze_x_std": float(gaze_in_sentence["avg_gaze_x"].std()) if not gaze_in_sentence.empty else np.nan,
+                "avg_gaze_y_std": float(gaze_in_sentence["avg_gaze_y"].std()) if not gaze_in_sentence.empty else np.nan,
+                "gaze_time_min": float(gaze_in_sentence["system_time"].min()) if not gaze_in_sentence.empty else np.nan,
+                "gaze_time_max": float(gaze_in_sentence["system_time"].max()) if not gaze_in_sentence.empty else np.nan,
+            }
+
+            if self.store_gaze_points:
+                row["gaze_points"] = gaze_in_sentence[
+                    ["system_time", "avg_gaze_x", "avg_gaze_y"]
+                ].to_dict(orient="records")
+
+            aligned.append(row)
+
+        return aligned
+
+    # ======================================================
+    # ANALYSIS
+    # ======================================================
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+        per: str = "slide",
+    ) -> pd.DataFrame:
+        """
+        Transcribe available voice recordings and align transcript sentences
+        with gaze samples from flattened background_data.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Flattened gaze DataFrame, one row per gaze point, with repeated
+            slide-level metadata.
+        per : str, optional
+            Included for API consistency with other analyzers.
+            Supported values: ['global', 'set', 'slide'].
+
+            Note:
+            Voice transcription is always computed internally per unique
+            recording, i.e. per (set_name, slide_index), because each slide
+            has its own voice file and start timestamp.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per aligned sentence.
+        """
+        if per not in ["global", "set", "slide"]:
+            raise ValueError("Parameter 'per' must be one of: ['global', 'set', 'slide'].")
+
+        required_cols = {
+            "set_name",
+            "slide_index",
+            "voice_file",
+            "voice_start_timestamp",
+            "system_time",
+            "avg_gaze_x",
+            "avg_gaze_y",
+        }
+        missing = required_cols - set(background_data.columns)
+        if missing:
+            raise ValueError(f"background_data missing required columns: {sorted(missing)}")
+
+        df = background_data.copy()
+
+        # Keep only rows with non-empty voice file paths
+        df = df[df["voice_file"].notna()].copy()
+        df = df[df["voice_file"].astype(str).str.strip() != ""].copy()
+
+        if df.empty:
+            self.results = pd.DataFrame()
+            return self.results
+
+        results_rows = []
+
+        # process per recording (per subject/session and slide)
+        for (set_name, slide_index), group in df.groupby(["set_name", "slide_index"]):
+            group = group.sort_values("system_time").reset_index(drop=True)
+
+            valid_voice_files = group["voice_file"].dropna().astype(str)
+            if valid_voice_files.empty:
+                print(f"Warning: No valid voice file for set '{set_name}', slide {slide_index}. Skipping transcription.")
+                continue
+
+            valid_voice_starts = group["voice_start_timestamp"].dropna()
+            if valid_voice_starts.empty:
+                print(f"Warning: No valid voice start timestamp for set '{set_name}', slide {slide_index}. Skipping transcription.")
+                continue
+
+            voice_file = valid_voice_files.iloc[0]
+            voice_start_timestamp = float(valid_voice_starts.iloc[0])
+
+            audio_path = self._loader_root / Path(voice_file) if self._loader_root else Path(voice_file)
+            if not audio_path.exists():
+                print(f"Warning: Audio file not found for set '{set_name}', slide {slide_index}: {audio_path}. Skipping transcription.")
+                continue
+
+            transcript = self._transcribe_audio(audio_path)
+            self.raw_transcripts[f"{set_name}__{slide_index}"] = transcript
+
+            aligned_rows = self._align_sentences_with_gaze(
+                sentences=transcript["sentences"],
+                gaze_subset=group,
+                voice_start_timestamp=voice_start_timestamp,
+            )
+
+            # Preserve slide-level metadata if present
+            screenshot_file = group["screenshot_file"].iloc[0] if "screenshot_file" in group.columns else None
+            input_data = group["input_data"].iloc[0] if "input_data" in group.columns else None
+            classification = group["classification"].iloc[0] if "classification" in group.columns else None
+            user_classification = group["user_classification"].iloc[0] if "user_classification" in group.columns else None
+            model_prediction = group["model_prediction"].iloc[0] if "model_prediction" in group.columns else None
+            objects_bboxes = group["objects_bboxes"].iloc[0] if "objects_bboxes" in group.columns else None
+
+            for row in aligned_rows:
+                row.update({
+                    "set_name": set_name,
+                    "slide_index": slide_index,
+                    "voice_file": voice_file,
+                    "voice_start_timestamp": voice_start_timestamp,
+                    "screenshot_file": screenshot_file,
+                    "input_data": input_data,
+                    "classification": classification,
+                    "user_classification": user_classification,
+                    "model_prediction": model_prediction,
+                    "objects_bboxes": objects_bboxes,
+                    "transcript_language": transcript.get("language", None),
+                    "full_transcript": transcript.get("full_text", ""),
+                })
+                results_rows.append(row)
+
+        results_df = pd.DataFrame(results_rows)
+
+        if not results_df.empty:
+            results_df = results_df.sort_values(
+                ["set_name", "slide_index", "sentence_index"]
+            ).reset_index(drop=True)
+
+        self.results = results_df
+
+        if self.save_transcripts_json:
+            raw_path = self.output_folder / "VoiceTranscription_raw_transcripts.json"
+            with open(raw_path, "w", encoding="utf-8") as f:
+                json.dump(self.raw_transcripts, f, ensure_ascii=False, indent=4)
+
+        return results_df
+
+    # ======================================================
+    # SAVE RESULTS
+    # ======================================================
+    def save_results(self, filename: Optional[str] = None):
+        """
+        Save analysis results to JSON and CSV.
+
+        Overrides BaseAnalyzer.save_results because:
+        - results may contain nested lists/dicts (e.g. gaze_points)
+        - CSV export is useful for inspection
+        """
+        if self.results is None:
+            return
+
+        filename = filename or f"{self.__class__.__name__}_results.json"
+        filepath = self.output_folder / filename
+
+        self.results.to_json(filepath, orient="records", indent=4, force_ascii=False)
+
+        # optionally save a flat CSV version without raw gaze point lists
+        csv_path = self.output_folder / f"{self.__class__.__name__}_results.csv"
+        self.results.drop(columns=["gaze_points"], errors="ignore").to_csv(
+            csv_path,
+            index=False,
+            encoding="utf-8",
+        )
+
+    
+# ======================================================
+    # VISUALIZATION: SCREENSHOT + COLORED GAZE + TEXT BOXES
+    # ======================================================
+    def plot_analysis(
+        self,
+        transcription_data: Optional[pd.DataFrame] = None,
+        screenshot_path: Optional[Path] = None,
+        title: Optional[str] = None,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        flip_y: bool = True,
+        alpha: float = 0.75,
+        point_size: float = 28.0,
+        colormap: str = "tab10",
+        max_text_chars: int = 140,
+        wrap_width: int = 32,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Plot gaze points overlayed on the screenshot, colored by aligned sentence.
+        On the right, render text boxes with the same color as the corresponding
+        sentence gaze points.
+
+        Parameters
+        ----------
+        transcription_data : pd.DataFrame, optional
+            Output of analyze(). If None, uses self.results.
+        screenshot_path : Path, optional
+            Path to screenshot. If None, tries to infer it from the filtered data.
+        title : str, optional
+            Plot title.
+        set_name : str, optional
+            Filter by set/session name.
+        slide_index : int, optional
+            Filter by slide index.
+        flip_y : bool, optional
+            Whether to invert y coordinate for centered screen coordinates.
+        alpha : float, optional
+            Point transparency.
+        point_size : float, optional
+            Scatter point size.
+        colormap : str, optional
+            Matplotlib colormap name for sentence colors.
+        max_text_chars : int, optional
+            Maximum number of characters shown in each text box.
+        wrap_width : int, optional
+            Approximate line width for textbox wrapping.
+        show : bool, optional
+            Whether to display the figure.
+        save_path : Path, optional
+            If provided, save the figure.
+        """
+        df = transcription_data.copy() if transcription_data is not None else self.results
+
+        if df is None or df.empty:
+            raise ValueError("No transcription results available. Run analyze() first.")
+
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None:
+            df = df[df["slide_index"] == slide_index]
+
+        if df.empty:
+            raise ValueError("No transcription rows match the provided filters.")
+
+        df = df.sort_values("sentence_index").reset_index(drop=True)
+
+        if screenshot_path is None:
+            if "screenshot_file" not in df.columns or df["screenshot_file"].dropna().empty:
+                raise ValueError("screenshot_path was not provided and could not be inferred from transcription data.")
+            screenshot_path = self._loader_root / Path(str(df["screenshot_file"].dropna().iloc[0])) if self._loader_root else Path(str(df["screenshot_file"].dropna().iloc[0]))
+        else:
+            screenshot_path = Path(screenshot_path)
+
+        if not screenshot_path.exists():
+            raise FileNotFoundError(f"Screenshot not found: {screenshot_path}")
+
+        img = mpimg.imread(screenshot_path)
+        H, W = img.shape[:2]
+
+        n_sentences = max(len(df), 1)
+        cmap = plt.get_cmap(colormap, n_sentences)
+        colors = [cmap(i) for i in range(n_sentences)]
+
+        fig = plt.figure(figsize=(16, 8))
+        gs = fig.add_gridspec(1, 2, width_ratios=[1.35, 1.0], wspace=0.05)
+
+        ax_img = fig.add_subplot(gs[0, 0])
+        ax_txt = fig.add_subplot(gs[0, 1])
+
+        # --- Left panel: screenshot + gaze points ---
+        ax_img.imshow(img, origin="upper")
+
+        for i, (_, row) in enumerate(df.iterrows()):
+            color = colors[i]
+            gaze_points = row.get("gaze_points", [])
+
+            if gaze_points is None or len(gaze_points) == 0:
+                continue
+
+            gaze_df = pd.DataFrame(gaze_points)
+            if gaze_df.empty:
+                continue
+
+            xs = W / 2 + gaze_df["avg_gaze_x"].astype(float).values
+            ys = H / 2 - gaze_df["avg_gaze_y"].astype(float).values if flip_y else H / 2 + gaze_df["avg_gaze_y"].astype(float).values
+
+            ax_img.scatter(
+                xs,
+                ys,
+                s=point_size,
+                c=[color],
+                alpha=alpha,
+                label=f"Sentence {int(row['sentence_index'])}",
+            )
+
+            # mark sentence centroid if available
+            if not np.isnan(row.get("avg_gaze_x_mean", np.nan)) and not np.isnan(row.get("avg_gaze_y_mean", np.nan)):
+                cx = W / 2 + float(row["avg_gaze_x_mean"])
+                cy = H / 2 - float(row["avg_gaze_y_mean"]) if flip_y else H / 2 + float(row["avg_gaze_y_mean"])
+                ax_img.scatter(
+                    [cx],
+                    [cy],
+                    s=point_size * 3.0,
+                    c=[color],
+                    alpha=1.0,
+                    edgecolors="black",
+                    linewidths=1.0,
+                    marker="o",
+                )
+                ax_img.text(
+                    cx,
+                    cy,
+                    str(int(row["sentence_index"])),
+                    fontsize=8,
+                    ha="center",
+                    va="center",
+                    color="white",
+                    weight="bold",
+                )
+
+        ax_img.set_title(title or f"Voice–gaze alignment — {set_name}, slide {slide_index}")
+        ax_img.axis("off")
+
+        # --- Right panel: colored sentence boxes ---
+        ax_txt.axis("off")
+        ax_txt.set_xlim(0, 1)
+        ax_txt.set_ylim(0, 1)
+
+        top_margin = 0.97
+        bottom_margin = 0.03
+        available_h = top_margin - bottom_margin
+        box_h = available_h / max(n_sentences, 1)
+
+        for i, (_, row) in enumerate(df.iterrows()):
+            color = colors[i]
+            y_top = top_margin - i * box_h
+            y_center = y_top - box_h / 2
+
+            sent_idx = int(row["sentence_index"])
+            sent_text = self._truncate_text(str(row["sentence_text"]), max_chars=max_text_chars)
+            sent_text = textwrap.fill(sent_text, width=wrap_width)
+
+            time_info = f"[{row['rel_start']:.2f}s – {row['rel_end']:.2f}s]"
+            gaze_info = f"gaze n={int(row['gaze_sample_count'])}"
+
+            full_text = f"S{sent_idx} {time_info}\n{sent_text}\n{gaze_info}"
+
+            ax_txt.text(
+                0.02,
+                y_center,
+                full_text,
+                ha="left",
+                va="center",
+                fontsize=9,
+                color="black",
+                bbox=dict(
+                    boxstyle="round,pad=0.4",
+                    facecolor=color,
+                    edgecolor="black",
+                    alpha=0.55,
+                ),
+            )
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+    # ======================================================
+    # VISUALIZATION
+    # ======================================================
+    def plot_analysis_summary(
+        self,
+        transcription_data: Optional[pd.DataFrame] = None,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        title: Optional[str] = None,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        """
+        Plot a simple timeline of transcript sentences and aligned gaze counts.
+
+        Parameters
+        ----------
+        transcription_data : pd.DataFrame, optional
+            Output of analyze(). If None, uses self.results.
+        set_name : str, optional
+            Filter by set/session name.
+        slide_index : int, optional
+            Filter by slide index.
+        title : str, optional
+            Plot title.
+        show : bool, optional
+            Whether to display the figure interactively.
+        save_path : Path, optional
+            If provided, saves the figure to this location.
+        """
+        df = transcription_data.copy() if transcription_data is not None else self.results
+
+        if df is None or df.empty:
+            raise ValueError("No transcription results available. Run analyze() first.")
+
+        if set_name is not None:
+            df = df[df["set_name"] == set_name]
+        if slide_index is not None:
+            df = df[df["slide_index"] == slide_index]
+
+        if df.empty:
+            raise ValueError("No transcription rows match the provided filters.")
+
+        df = df.sort_values("sentence_index").reset_index(drop=True)
+
+        fig, ax = plt.subplots(figsize=(12, 5))
+
+        for _, row in df.iterrows():
+            ax.plot(
+                [row["abs_start"], row["abs_end"]],
+                [row["sentence_index"], row["sentence_index"]],
+                linewidth=6,
+                solid_capstyle="butt",
+            )
+            ax.text(
+                row["abs_start"],
+                row["sentence_index"] + 0.12,
+                f'{int(row["sentence_index"])}: {str(row["sentence_text"])[:80]}',
+                fontsize=8,
+                ha="left",
+                va="bottom",
+            )
+
+        ax2 = ax.twinx()
+        widths = np.maximum(df["duration"].fillna(0.1).values, 0.05)
+        ax2.bar(
+            df["abs_start"].values,
+            df["gaze_sample_count"].fillna(0).values,
+            width=widths,
+            alpha=0.25,
+        )
+
+        ax.set_xlabel("Experiment time (s)")
+        ax.set_ylabel("Sentence index")
+        ax2.set_ylabel("Gaze sample count")
+        ax.set_title(title or f"Voice–gaze alignment — {set_name}, slide {slide_index}")
+        ax.grid(alpha=0.2)
+
+        if save_path:
+            plt.savefig(save_path, bbox_inches="tight", dpi=200)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
 
 from .bbox import (
     analyze_bbox_attention,
