@@ -97,6 +97,7 @@ def bootstrap_test_environment() -> Path:
         monitors.Monitor = Monitor
         core.wait = lambda *_args, **_kwargs: None
         event.waitKeys = lambda *_args, **_kwargs: []
+        event.clearEvents = lambda *_args, **_kwargs: None
 
         psychopy.visual = visual
         psychopy.core = core

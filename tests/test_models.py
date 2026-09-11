@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import matplotlib
+matplotlib.use("Agg", force=True)
+
 import tempfile
 import unittest
 from pathlib import Path

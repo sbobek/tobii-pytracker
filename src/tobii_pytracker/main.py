@@ -170,10 +170,11 @@ def main(config, loop_count, eyetracker_config_file,
             frame_delay = 0.05
 
             #warmup frames to clean the buffer and avoid initial lags in recording when stimulus is shown
-            event.clearEvents()
-            for _ in range(5):
-                window.flip()
-                core.wait(frame_delay)
+            if enable_psychopy:
+                event.clearEvents()
+                for _ in range(5):
+                    window.flip()
+                    core.wait(frame_delay)
 
             # --- Headless mode (no PsychoPy GUI) ---
             if not enable_psychopy and enable_eyetracker:
