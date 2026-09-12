@@ -8,6 +8,17 @@ from .geometry import (
 from .parsing import parse_objects_bboxes
 from .plotting import plot_bbox_attention
 from .scoring import analyze_bbox_attention, evaluate_bbox_attention
+from .modalities import (
+    parse_input_data,
+    extract_timeseries_bboxes,
+    extract_text_bboxes,
+    analyze_bbox_timeseries,
+    plot_bbox_timeseries,
+    analyze_bbox_text,
+    plot_bbox_text,
+    analyze_bbox_image,
+    plot_bbox_image,
+)
 
 __all__ = [
     "parse_objects_bboxes",
@@ -19,4 +30,13 @@ __all__ = [
     "analyze_bbox_attention",
     "evaluate_bbox_attention",
     "plot_bbox_attention",
+    "parse_input_data",
+    "extract_timeseries_bboxes",
+    "extract_text_bboxes",
+    "analyze_bbox_timeseries",
+    "plot_bbox_timeseries",
+    "analyze_bbox_text",
+    "plot_bbox_text",
+    "analyze_bbox_image",
+    "plot_bbox_image",
 ]

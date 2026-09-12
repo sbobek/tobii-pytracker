@@ -52,6 +52,7 @@ def prepare_buttons(config, window, dataset):
     text_color = button_config["text"]["color"]
     for i, class_name in enumerate(classes):
         x_pos = start_x + i * (button_width + actual_margin)
+        class_name = str(class_name)
         label = class_name.lower()
         text_size = fit_text_to_area(window, class_name.upper(), button_width, button_height, button_config["text"]["size"])
 

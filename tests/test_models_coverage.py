@@ -13,6 +13,9 @@ from tobii_pytracker.analyze.models import (
     SaccadeAnalyzer,
     EntropyAnalyzer,
     BBoxAttentionAnalyzer,
+    BBoxImageAnalyzer,
+    BBoxTextAnalyzer,
+    BBoxTimeSeriesAnalyzer,
     ClusterAnalyzer,
 )
 
@@ -498,6 +501,102 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
         
         x, y, dur = BBoxAttentionAnalyzer._resolve_gaze_columns(use_fixations=False)
         self.assertEqual((x, y, dur), ("avg_gaze_x", "avg_gaze_y", None))
+
+
+class TestBBoxTimeSeriesAnalyzerCoverage(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.output_folder = Path(self.temp_dir)
+
+    def test_timeseries_bbox_analyzer_analyze_basic(self):
+        analyzer = BBoxTimeSeriesAnalyzer(self.output_folder)
+
+        slide_data = pd.DataFrame({
+            "set_name": ["test_set", "test_set", "test_set"],
+            "slide_index": [0, 0, 0],
+            "input_data": ["[0, 1, 2, 3]"] * 3,
+            "avg_gaze_x": [0.0, 5.0, 120.0],
+            "avg_gaze_y": [0.0, 5.0, 120.0],
+            "objects_bboxes": [{
+                "timeseries_bboxes": [
+                    {"channel_idx": 0, "bbox": {"cx": 0.0, "cy": 0.0, "w": 20.0, "h": 20.0}},
+                    {"channel_idx": 1, "bbox": {"cx": 100.0, "cy": 100.0, "w": 10.0, "h": 10.0}},
+                ]
+            }] * 3,
+        })
+
+        result = analyzer.analyze(slide_data, set_name="test_set", slide_index=0)
+        self.assertEqual(len(result), 2)
+        self.assertTrue(bool(result.loc[result["bbox_index"] == 0, "is_visited"].iloc[0]))
+        self.assertFalse(bool(result.loc[result["bbox_index"] == 1, "is_visited"].iloc[0]))
+
+    def test_timeseries_bbox_parse_input_data(self):
+        parsed = BBoxTimeSeriesAnalyzer._parse_input_data("[1, 2, 3]")
+        self.assertTrue(np.array_equal(parsed, np.array([1.0, 2.0, 3.0])))
+
+    def test_timeseries_bbox_plot_analysis(self):
+        analyzer = BBoxTimeSeriesAnalyzer(self.output_folder)
+        slide_data = pd.DataFrame({
+            "set_name": ["test_set"],
+            "slide_index": [0],
+            "input_data": ["[0, 1, 2, 3]"],
+            "avg_gaze_x": [0.0],
+            "avg_gaze_y": [0.0],
+            "objects_bboxes": [{
+                "timeseries_bboxes": [
+                    {"channel_idx": 0, "bbox": {"cx": 0.0, "cy": 0.0, "w": 20.0, "h": 20.0}},
+                ]
+            }],
+        })
+
+        analyzer.analyze(slide_data)
+        fig, ax = analyzer.plot_analysis(slide_data, show=False, area_x=400.0, area_y=300.0)
+        self.assertIsNotNone(fig)
+        self.assertIsNotNone(ax)
+
+
+class TestBBoxImageAndTextAnalyzerCoverage(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.output_folder = Path(self.temp_dir)
+
+    def test_bbox_image_analyzer_analyze(self):
+        analyzer = BBoxImageAnalyzer(self.output_folder)
+        slide_data = pd.DataFrame({
+            "set_name": ["test_set", "test_set"],
+            "slide_index": [0, 0],
+            "objects_bboxes": [{
+                "image_bboxes": [
+                    {"bbox": {"cx": 0.0, "cy": 0.0, "w": 20.0, "h": 20.0}},
+                ]
+            }] * 2,
+            "avg_gaze_x": [0.0, 100.0],
+            "avg_gaze_y": [0.0, 100.0],
+        })
+
+        result = analyzer.analyze(slide_data, set_name="test_set", slide_index=0)
+        self.assertIsNotNone(result)
+        self.assertIn("hit_count", result.columns)
+
+    def test_bbox_text_analyzer_analyze(self):
+        analyzer = BBoxTextAnalyzer(self.output_folder)
+        slide_data = pd.DataFrame({
+            "set_name": ["test_set", "test_set"],
+            "slide_index": [0, 0],
+            "objects_bboxes": [{
+                "words": [
+                    {"text": "hello", "bbox": {"cx": 0.0, "cy": 0.0, "w": 30.0, "h": 20.0}},
+                ]
+            }] * 2,
+            "avg_gaze_x": [0.0, 100.0],
+            "avg_gaze_y": [0.0, 100.0],
+        })
+
+        result = analyzer.analyze(slide_data, level="words", set_name="test_set", slide_index=0)
+        self.assertIsNotNone(result)
+        self.assertIn("is_visited", result.columns)
 
 
 class TestClusterAnalyzerCoverage(unittest.TestCase):
