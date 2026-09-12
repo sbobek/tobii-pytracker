@@ -1,10 +1,8 @@
 import os
 import csv
 import argparse
-import importlib
 import threading
 from datetime import datetime
-import traceback
 from psychopy import event, core
 
 from .utils import gui, eyetracker
@@ -12,7 +10,6 @@ from .utils.voice import VoiceRecorder
 from .utils.custom_logger import CustomLogger
 from .configs.custom_config import CustomConfig
 from .datasets.custom_dataset import TextDataset, ImageDataset, TimeSeriesDataset
-
 
 LOGGER = None
 
@@ -116,7 +113,7 @@ def main(config, loop_count, eyetracker_config_file,
     Running headless will continuously record raw eye-tracker data and voice
     until the user presses Ctrl+C.
     """
-    
+
     if config.dataset_type == "text":
         dataset = TextDataset(config)
     elif config.dataset_type == "time_series":
@@ -136,7 +133,6 @@ def main(config, loop_count, eyetracker_config_file,
     buffer, last_event_id = {}, 0
     if enable_eyetracker:
         io, tracker = eyetracker.launch_hub_server(eyetracker_config_file, window if enable_psychopy else None)
- 
 
     # --- Output setup ---
     output_config = config.get_output_config()
@@ -155,7 +151,7 @@ def main(config, loop_count, eyetracker_config_file,
 
     # Detect if this is a MouseGaze tracker
     iohub_config = CustomConfig.read_config(eyetracker_config_file)
-    is_mouse_tracker =  eyetracker.is_mouse_eyetracker(iohub_config)
+    is_mouse_tracker = eyetracker.is_mouse_eyetracker(iohub_config)
     move_button_idx = eyetracker.get_mouse_move_button_idx(iohub_config)
 
     # --- Main try/finally block to ensure cleanup ---
@@ -171,12 +167,21 @@ def main(config, loop_count, eyetracker_config_file,
             last_click_time = core.getTime()
             focus_time = 2.0
             debounce_time = 0.5
+            frame_delay = 0.05
+
+            #warmup frames to clean the buffer and avoid initial lags in recording when stimulus is shown
+            if enable_psychopy:
+                event.clearEvents()
+                for _ in range(5):
+                    window.flip()
+                    core.wait(frame_delay)
 
             # --- Headless mode (no PsychoPy GUI) ---
             if not enable_psychopy and enable_eyetracker:
                 LOGGER.info("Running in headless mode (no GUI). Press Ctrl+C to stop.")
                 try:
-                    with open(os.path.join(output_folder, "raw_stream.csv"), "w", newline='', encoding="utf-8") as rawfile:
+                    with open(os.path.join(output_folder, "raw_stream.csv"), "w", newline='',
+                              encoding="utf-8") as rawfile:
                         raw_writer = csv.writer(rawfile)
                         raw_writer.writerow(["timestamp", "sample_data"])
 
@@ -200,6 +205,9 @@ def main(config, loop_count, eyetracker_config_file,
 
             # --- PsychoPy GUI loop ---
             for i, sample in enumerate(dataset.data):
+                #clear all hanging evensts and add a small delay to ensure clean state at the start of each trial
+                event.clearEvents()
+                core.wait(frame_delay)
                 if i == loop_count:
                     break
 
@@ -214,7 +222,8 @@ def main(config, loop_count, eyetracker_config_file,
                                             focus_time,
                                             output_folder
                                         )
-
+     
+                
                 gaze_data = [] 
                 next_data = False
                 voice_thread, voice_stop_event, voice_filename, voice_start_time = None, None, None, None
@@ -243,22 +252,26 @@ def main(config, loop_count, eyetracker_config_file,
                                 should_record = True
                                 if is_mouse_tracker:
                                     pressed = mouse.getPressed()
-                                    should_record = pressed[move_button_idx]  # only record while configured button pressed
+                                    should_record = pressed[
+                                        move_button_idx]  # only record while configured button pressed
 
                                 if should_record:
                                     current_time = core.getTime()
                                     if raw_data:
-                                        full_sample = eyetracker.extract_full_raw_event(buffer, system_time=current_time)
+                                        full_sample = eyetracker.extract_full_raw_event(buffer,
+                                                                                        system_time=current_time)
                                         if full_sample:
                                             gaze_data.extend(full_sample)
                                     else:
-                                        eye_sample = eyetracker.extract_eye_gaze_events(buffer, system_time=current_time, config=config)
+                                        eye_sample = eyetracker.extract_eye_gaze_events(buffer,
+                                                                                        system_time=current_time,
+                                                                                        config=config)
                                         if eye_sample:
                                             gaze_data.extend(eye_sample)
                                 elif enable_eyetracker and tracker:
                                     tracker.clearEvents()
                                     buffer.clear()
-                                 
+
 
                             except Exception as e:
                                 import traceback
@@ -333,18 +346,25 @@ def main(config, loop_count, eyetracker_config_file,
 def cli():
     parser = argparse.ArgumentParser()
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str, default='configs/config.yaml', help='Path to YAML script config file')
-    parser.add_argument('--eyetracker_config_file', type=str, default='configs/eyetracker_config.yaml', help='Path to YAML eyetracker config file')
+    parser.add_argument('--config_file', type=str, default='configs/config.yaml',
+                        help='Path to YAML script config file')
+    parser.add_argument('--eyetracker_config_file', type=str, default='configs/eyetracker_config.yaml',
+                        help='Path to YAML eyetracker config file')
 
     # Boolean flags
-    parser.add_argument('--enable_eyetracker', action='store_true', help='Launch script with launchHubServer (needs connected eyetracker if set)')
+    parser.add_argument('--enable_eyetracker', action='store_true',
+                        help='Launch script with launchHubServer (needs connected eyetracker if set)')
     parser.add_argument('--enable_voice', action='store_true', help='Enable voice recording and processing')
-    parser.add_argument('--raw_data', action='store_true', help='Record full Tobii raw samples instead of filtered gaze position')
-    parser.add_argument('--disable_psychopy', action='store_true', help='Run headless (no GUI) and continuously record gaze + voice until stopped')
+    parser.add_argument('--raw_data', action='store_true',
+                        help='Record full Tobii raw samples instead of filtered gaze position')
+    parser.add_argument('--disable_psychopy', action='store_true',
+                        help='Run headless (no GUI) and continuously record gaze + voice until stopped')
 
     # Other arguments
-    parser.add_argument('--loop_count', type=int, default=10, help='Number of times that different data will be displayed before the script exits')
-    parser.add_argument('--log_level', type=str, default='info', help='Main logger level ("info", "debug", "warning", "error", "critical")')
+    parser.add_argument('--loop_count', type=int, default=10,
+                        help='Number of times that different data will be displayed before the script exits')
+    parser.add_argument('--log_level', type=str, default='info',
+                        help='Main logger level ("info", "debug", "warning", "error", "critical")')
 
     args = parser.parse_args()
 
@@ -368,4 +388,3 @@ if __name__ == "__main__":
 
 
 
-    

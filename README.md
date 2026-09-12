@@ -109,7 +109,7 @@ Different datasets can be specified in the config file that will be processed an
 ## Custom Model
 
 The custom model for detecting bounding boxes fro possible area of interest is optional. 
-Every dataset class has its own bounding-box detection method (words for text, bins dor time-series, superpixels for images).
+Every dataset class has its own bounding-box detection method (words for text, bins dor time-series, polygons for image superpixels).
 However, you might want to change it with your custom implementation.
 It is desired, when you want to get bounding box from external model at the runtime, because for instance screenshots have format or size which is not used by you detection model and cannot be use post-hoc.
 
@@ -165,47 +165,51 @@ The general configuration file should include the following fields:
 
 ```yaml
 dataset:
-  path: path/to/dataset
+  image:
+    bbox_model:  superpixel #grid | superpixel | saliency
+    path: datasets/vehicles
+
 display:
-  monitor:
-    name: monitor_name
+  monitor: 
+    name: spectrum_monitor
     resolution:
-      - width
-      - height
-    width: monitor_width
-    distance: distance_from_monitor
+      - 2560 
+      - 1440
+    width: 35
+    distance: 60
+    display_number: 0
   gui:
     button:
       size:
-        - size_x
-        - size_y
-      color: color
+        - 250
+        - 100
+      margin: 20
+      color: lightgrey
       text:
-        color: text_color
-        size: text_size
+        color: black
+        size: 30
     fixation_dot: 
-      size: radius_of_a_dot
-      color: dot_color
+      size: 10
+      color: white
     aoe:
-      - size_x
-      - size_y
+      - 750
+      - 750
+
 output:
-  folder: folder
-  file: file
-
-bbox_model:
-  folder: folder
-  module: module
-  class: class
-  filename: filename
-
+  folder: output
 
 instructions:
   intro:
-    - "Introductory message."
-    - "Press SPACE to begin."
+    - "Welcome to the study!"
+    - ""
+    - "In this experiment, you will see a series of images or text samples."
+    - "Please look at each stimulus carefully, then select the appropriate option using the buttons below."
+    - ""
+    - "Click on the window and press SPACE to begin."
   outro:
-    - "Message for the end of the study."
+    - "Thank you for participating in this study!"
+    - ""
+    - "Your responses and recordings have been saved."
     - "You may now close the window or press ESC to exit."
 ```
 
@@ -213,12 +217,25 @@ instructions:
 
 ```yaml
 dataset:
-  path: path/to/file.csv
   text:
-    label_column_name: label_column_name
-    text_column_name: text_column_name
+    label_column_name: sentiment
+    text_column_name: selected_text
+    color: white
+    background_color: black
+    bbox_model: word # word|line|sentence
+    path: datasets/twitter/tweets.csv
 ```
 
+
+> NOTE: If using a dataset with __time_series__ data, the path should be specified for a file in a `.csv` format.
+
+```yaml
+dataset:
+  time_series:
+    label_column_name: class
+    bbox_model:  sample #|window
+    path: datasets/ecg/ecg200.csv
+```
 ### Eye Tracker Configuration (eyetracker_config.yaml)
 
 The eye tracker configuration file should include the fields required by `launchHubServer` from the `psychopy.iohub` module. Refer to the [PsychoPy documentation](https://www.psychopy.org/api/iohub/device/eyetracker_interface/Tobii_Implementation_Notes.html#default-device-settings) for more details on the specific settings.

@@ -1,5 +1,13 @@
-from .custom_dataset import CustomDataset
+from .custom_dataset import (
+    CustomDataset,
+    ImageDataset,
+    TextDataset,
+    TimeSeriesDataset
+)
 
 __all__ = [
     "CustomDataset",
+    "ImageDataset",
+    "TextDataset", 
+    "TimeSeriesDataset",
 ]

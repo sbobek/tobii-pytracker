@@ -6,9 +6,9 @@ from .models import (
     SaccadeAnalyzer,
     EntropyAnalyzer,
     ClusterAnalyzer,
-    ConceptAnalyzer,
     ScanpathsAnalyzer,
-    VoiceTranscription
+    VoiceTranscription,
+    BBoxAttentionAnalyzer,
 )
 from .data_loader import DataLoader
 
@@ -20,7 +20,7 @@ __all__ = [
     "SaccadeAnalyzer",
     "EntropyAnalyzer",
     "ClusterAnalyzer",
-    "ConceptAnalyzer",
     "ScanpathsAnalyzer",
-    "VoiceTranscription"
+    "VoiceTranscription",
+    "BBoxAttentionAnalyzer",
 ]
