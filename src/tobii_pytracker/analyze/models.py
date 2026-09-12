@@ -2240,10 +2240,19 @@ class VoiceTranscription(BaseAnalyzer):
 
 from .bbox import (
     analyze_bbox_attention,
+    analyze_bbox_image,
+    analyze_bbox_text,
+    analyze_bbox_timeseries,
     bbox_edges_centered,
+    extract_text_bboxes,
+    extract_timeseries_bboxes,
     evaluate_bbox_attention,
+    parse_input_data,
     parse_objects_bboxes,
     plot_bbox_attention,
+    plot_bbox_image,
+    plot_bbox_text,
+    plot_bbox_timeseries,
     point_inside_bbox,
     point_inside_polygon,
     polygon_to_plot_coords,
@@ -2336,5 +2345,157 @@ class BBoxAttentionAnalyzer(BaseAnalyzer):
             show_gaze=show_gaze,
             show=show,
             save_path=save_path,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+
+
+class BBoxTimeSeriesAnalyzer(BaseAnalyzer):
+    @staticmethod
+    def _parse_input_data(raw_input_data: Any) -> np.ndarray:
+        return parse_input_data(raw_input_data)
+
+    @staticmethod
+    def _extract_timeseries_bboxes(raw_bboxes: Any) -> List[Dict[str, Any]]:
+        return extract_timeseries_bboxes(raw_bboxes)
+
+    def analyze(
+        self,
+        slide_data: pd.DataFrame,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+    ) -> pd.DataFrame:
+        self.results = analyze_bbox_timeseries(
+            slide_data=slide_data,
+            set_name=set_name,
+            slide_index=slide_index,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+        return self.results
+
+    def plot_analysis(
+        self,
+        slide_data: pd.DataFrame,
+        scored_bboxes: Optional[pd.DataFrame] = None,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+        area_x: Optional[float] = None,
+        area_y: Optional[float] = None,
+        title: Optional[str] = None,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        if scored_bboxes is None:
+            scored_bboxes = self.results
+        return plot_bbox_timeseries(
+            slide_data=slide_data,
+            scored_bboxes=scored_bboxes,
+            set_name=set_name,
+            slide_index=slide_index,
+            area_x=area_x,
+            area_y=area_y,
+            title=title,
+            show=show,
+            save_path=save_path,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+
+
+class BBoxImageAnalyzer(BaseAnalyzer):
+    def analyze(
+        self,
+        slide_data: pd.DataFrame,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+    ) -> pd.DataFrame:
+        self.results = analyze_bbox_image(
+            slide_data=slide_data,
+            set_name=set_name,
+            slide_index=slide_index,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+        return self.results
+
+    def plot_analysis(
+        self,
+        scored_bboxes: pd.DataFrame,
+        gaze_data: pd.DataFrame,
+        screenshot_path: Path,
+        set_name: Optional[str] = None,
+        slide_index: Optional[int] = None,
+        title: Optional[str] = None,
+        top_k: Optional[int] = 20,
+        min_hits: int = 1,
+        show_gaze: bool = True,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        return plot_bbox_image(
+            scored_bboxes=scored_bboxes,
+            gaze_data=gaze_data,
+            screenshot_path=screenshot_path,
+            set_name=set_name,
+            slide_index=slide_index,
+            title=title,
+            top_k=top_k,
+            min_hits=min_hits,
+            show_gaze=show_gaze,
+            show=show,
+            save_path=save_path,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+
+
+class BBoxTextAnalyzer(BaseAnalyzer):
+    @staticmethod
+    def _extract_text_bboxes(raw_bboxes: Any, level: str = "words") -> List[Dict[str, Any]]:
+        return extract_text_bboxes(raw_bboxes, level=level)
+
+    def analyze(
+        self,
+        slide_data: pd.DataFrame,
+        level: str = "words",
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+    ) -> pd.DataFrame:
+        self.results = analyze_bbox_text(
+            slide_data=slide_data,
+            level=level,
+            set_name=set_name,
+            slide_index=slide_index,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+        return self.results
+
+    def plot_analysis(
+        self,
+        slide_data: pd.DataFrame,
+        level: str = "words",
+        scored_bboxes: Optional[pd.DataFrame] = None,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+        area_x: Optional[float] = None,
+        area_y: Optional[float] = None,
+        title: Optional[str] = None,
+        show: bool = True,
+        save_path: Optional[Path] = None,
+    ):
+        if scored_bboxes is None:
+            scored_bboxes = self.results
+        return plot_bbox_text(
+            slide_data=slide_data,
+            level=level,
+            scored_bboxes=scored_bboxes,
+            set_name=set_name,
+            slide_index=slide_index,
+            area_x=area_x,
+            area_y=area_y,
+            title=title,
+            show=show,
+            save_path=save_path,
+            normalize_slide_index_column=self._normalize_slide_index_column,
             filter_set_and_slide=self._filter_set_and_slide,
         )

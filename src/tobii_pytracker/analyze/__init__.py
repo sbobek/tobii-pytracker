@@ -9,6 +9,9 @@ from .models import (
     ScanpathsAnalyzer,
     VoiceTranscription,
     BBoxAttentionAnalyzer,
+    BBoxImageAnalyzer,
+    BBoxTextAnalyzer,
+    BBoxTimeSeriesAnalyzer,
 )
 from .data_loader import DataLoader
 
@@ -23,4 +26,7 @@ __all__ = [
     "ScanpathsAnalyzer",
     "VoiceTranscription",
     "BBoxAttentionAnalyzer",
+    "BBoxImageAnalyzer",
+    "BBoxTextAnalyzer",
+    "BBoxTimeSeriesAnalyzer",
 ]
