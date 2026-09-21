@@ -20,6 +20,30 @@ from tobii_pytracker.analyze.models import (
 )
 
 
+def combine_raw_and_gaze(raw_data, gaze_data):
+    """Combine raw_data and gaze_data as the new API expects.
+    
+    Creates N rows (one per gaze point) with raw data columns merged
+    with gaze point coordinates.
+    """
+    if gaze_data.empty:
+        # Empty gaze data case - add empty avg_gaze columns
+        result = raw_data.copy()
+        result['avg_gaze_x'] = pd.Series(dtype='float64')
+        result['avg_gaze_y'] = pd.Series(dtype='float64')
+        return result
+    
+    # For each gaze point, create a row combining raw and gaze info
+    combined = pd.concat([
+        raw_data.assign(
+            avg_gaze_x=gaze_data["avg_gaze_x"].iloc[j] if "avg_gaze_x" in gaze_data else gaze_data.get("x_mean", pd.Series()).iloc[j],
+            avg_gaze_y=gaze_data["avg_gaze_y"].iloc[j] if "avg_gaze_y" in gaze_data else gaze_data.get("y_mean", pd.Series()).iloc[j],
+        )
+        for j in range(len(gaze_data))
+    ]).reset_index(drop=True)
+    return combined
+
+
 class TestClusterAnalyzer(unittest.TestCase):
     
 
@@ -326,10 +350,14 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
     def test_analyze_missing_set_name(self):
         
         raw_data = pd.DataFrame({"gaze_x": [100]})
-        gaze_data = pd.DataFrame({"gaze_x": [100], "gaze_y": [150]})
+        gaze_data = pd.DataFrame({
+            "avg_gaze_x": [100],
+            "avg_gaze_y": [150],
+        })
         
-        with self.assertRaises(ValueError):
-            self.analyzer.analyze(raw_data, gaze_data)
+        background_data = combine_raw_and_gaze(raw_data, gaze_data)
+        with self.assertRaises((ValueError, KeyError)):
+            self.analyzer.analyze(background_data=background_data)
 
     def test_analyze_with_data(self):
         

@@ -2256,6 +2256,13 @@ from .bbox import (
 
 class BBoxAttentionAnalyzer(BaseAnalyzer):
 
+    def __init__(
+        self,
+        output_folder: Path,
+        config: CustomConfig = None,
+    ):
+        super().__init__(output_folder, config=config)
+
     @staticmethod
     def _parse_objects_bboxes(value: Any) -> Dict[str, Any]:
         return parse_objects_bboxes(value)
@@ -2291,14 +2298,21 @@ class BBoxAttentionAnalyzer(BaseAnalyzer):
 
     def analyze(
         self,
-        raw_data: pd.DataFrame,
-        gaze_data: pd.DataFrame,
-        use_fixations: bool = False,
+        background_data: pd.DataFrame,
     ) -> pd.DataFrame:
+        raw_cols = ['set_name', 'slide_index', 'objects_bboxes']
+        gaze_cols = ['set_name', 'slide_index', 'avg_gaze_x', 'avg_gaze_y']
+        
+        raw_data = background_data[raw_cols].drop_duplicates(
+            subset=['set_name', 'slide_index'], keep='first'
+        ).reset_index(drop=True)
+        
+        gaze_data = background_data[gaze_cols].copy()
+        
         result = analyze_bbox_attention(
             raw_data=raw_data,
             gaze_data=gaze_data,
-            use_fixations=use_fixations,
+            use_fixations=False,
             normalize_slide_index_column=self._normalize_slide_index_column,
             filter_set_and_slide=self._filter_set_and_slide,
             resolve_gaze_columns=self._resolve_gaze_columns,
