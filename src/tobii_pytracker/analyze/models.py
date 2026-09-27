@@ -2246,15 +2246,11 @@ from .bbox import (
     plot_bbox_attention,
     extract_text_bboxes,
     extract_gaze_points,
-    gaze_inside_bbox,
-    extract_image_bboxes,
-    extract_gaze,
-    resolve_image_path,
-    bbox_contains_gaze
+    gaze_inside_bbox
 )
 
 
-class BBoxAttentionAnalyzer(BaseAnalyzer):
+class BBoxImagesAnalyzer(BaseAnalyzer):
 
     def __init__(
         self,

@@ -16,7 +16,7 @@ from tobii_pytracker.analyze.models import (
     ClusterAnalyzer,
     ScanpathsAnalyzer,
     VoiceTranscription,
-    BBoxAttentionAnalyzer,
+    BBoxImagesAnalyzer,
 )
 
 
@@ -232,48 +232,48 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.output_folder = Path(self.temp_dir.name)
-        self.analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        self.analyzer = BBoxImagesAnalyzer(self.output_folder)
 
     def tearDown(self):
         self.temp_dir.cleanup()
 
     def test_bbox_analyzer_init(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         self.assertEqual(analyzer.output_folder, self.output_folder)
 
     def test_parse_objects_bboxes_dict(self):
         
         bbox_dict = {"image_bboxes": [{"id": 1}]}
-        result = BBoxAttentionAnalyzer._parse_objects_bboxes(bbox_dict)
+        result = BBoxImagesAnalyzer._parse_objects_bboxes(bbox_dict)
         self.assertEqual(result, bbox_dict)
 
     def test_parse_objects_bboxes_json_string(self):
         
         bbox_json = '{"image_bboxes": [{"id": 1}]}'
-        result = BBoxAttentionAnalyzer._parse_objects_bboxes(bbox_json)
+        result = BBoxImagesAnalyzer._parse_objects_bboxes(bbox_json)
         self.assertEqual(result["image_bboxes"][0]["id"], 1)
 
     def test_parse_objects_bboxes_python_literal(self):
         
         bbox_str = "{'image_bboxes': [{'id': 1}]}"
-        result = BBoxAttentionAnalyzer._parse_objects_bboxes(bbox_str)
+        result = BBoxImagesAnalyzer._parse_objects_bboxes(bbox_str)
         self.assertEqual(result["image_bboxes"][0]["id"], 1)
 
     def test_parse_objects_bboxes_invalid(self):
         
-        result = BBoxAttentionAnalyzer._parse_objects_bboxes("invalid{data[")
+        result = BBoxImagesAnalyzer._parse_objects_bboxes("invalid{data[")
         self.assertEqual(result, {"image_bboxes": []})
 
     def test_parse_objects_bboxes_none(self):
         
-        result = BBoxAttentionAnalyzer._parse_objects_bboxes(None)
+        result = BBoxImagesAnalyzer._parse_objects_bboxes(None)
         self.assertEqual(result, {"image_bboxes": []})
 
     def test_bbox_edges_centered(self):
         
         bbox = {"cx": 100.0, "cy": 150.0, "w": 40.0, "h": 60.0}
-        result = BBoxAttentionAnalyzer._bbox_edges_centered(bbox)
+        result = BBoxImagesAnalyzer._bbox_edges_centered(bbox)
         
         self.assertEqual(result["x_min"], 80.0)
         self.assertEqual(result["x_max"], 120.0)
@@ -283,7 +283,7 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
     def test_polygon_vertices_dict_points(self):
         
         polygon_data = [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}]
-        result = BBoxAttentionAnalyzer._polygon_vertices(polygon_data)
+        result = BBoxImagesAnalyzer._polygon_vertices(polygon_data)
         
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 3)
@@ -292,26 +292,26 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
     def test_polygon_vertices_tuple_points(self):
         
         polygon_data = [(0, 0), (10, 0), (10, 10)]
-        result = BBoxAttentionAnalyzer._polygon_vertices(polygon_data)
+        result = BBoxImagesAnalyzer._polygon_vertices(polygon_data)
         
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 3)
 
     def test_polygon_vertices_none(self):
         
-        result = BBoxAttentionAnalyzer._polygon_vertices(None)
+        result = BBoxImagesAnalyzer._polygon_vertices(None)
         self.assertIsNone(result)
 
     def test_polygon_vertices_less_than_3_points(self):
         
         polygon_data = [(0, 0), (10, 0)]
-        result = BBoxAttentionAnalyzer._polygon_vertices(polygon_data)
+        result = BBoxImagesAnalyzer._polygon_vertices(polygon_data)
         self.assertIsNone(result)
 
     def test_polygon_vertices_invalid_data(self):
         
         polygon_data = [{"x": "invalid", "y": 0}]
-        result = BBoxAttentionAnalyzer._polygon_vertices(polygon_data)
+        result = BBoxImagesAnalyzer._polygon_vertices(polygon_data)
         self.assertIsNone(result)
 
     def test_point_inside_polygon(self):
@@ -319,17 +319,17 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
         polygon = np.array([[0, 0], [10, 0], [10, 10], [0, 10]])
         
         # Point inside
-        result = BBoxAttentionAnalyzer._point_inside_polygon(5, 5, polygon)
+        result = BBoxImagesAnalyzer._point_inside_polygon(5, 5, polygon)
         self.assertTrue(result)
         
         # Point outside
-        result = BBoxAttentionAnalyzer._point_inside_polygon(15, 15, polygon)
+        result = BBoxImagesAnalyzer._point_inside_polygon(15, 15, polygon)
         self.assertFalse(result)
 
     def test_polygon_to_plot_coords(self):
         
         polygon = np.array([[0, 0], [10, 0], [10, 10]])
-        result = BBoxAttentionAnalyzer._polygon_to_plot_coords(polygon, width=100, height=100)
+        result = BBoxImagesAnalyzer._polygon_to_plot_coords(polygon, width=100, height=100)
         
         self.assertEqual(len(result), 3)
         # First point should be (50, 50) when width/height are 100
@@ -340,11 +340,11 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
         bbox = {"cx": 100.0, "cy": 150.0, "w": 40.0, "h": 60.0}
         
         # Point inside
-        result = BBoxAttentionAnalyzer._point_inside_bbox(100, 150, bbox)
+        result = BBoxImagesAnalyzer._point_inside_bbox(100, 150, bbox)
         self.assertTrue(result)
         
         # Point outside
-        result = BBoxAttentionAnalyzer._point_inside_bbox(200, 200, bbox)
+        result = BBoxImagesAnalyzer._point_inside_bbox(200, 200, bbox)
         self.assertFalse(result)
 
     def test_analyze_missing_set_name(self):

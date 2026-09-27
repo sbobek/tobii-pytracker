@@ -12,7 +12,7 @@ from tobii_pytracker.analyze.models import (
     FixationAnalyzer,
     SaccadeAnalyzer,
     EntropyAnalyzer,
-    BBoxAttentionAnalyzer,
+    BBoxImagesAnalyzer,
     ClusterAnalyzer,
 )
 
@@ -346,12 +346,12 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_initialization(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         self.assertIsNotNone(analyzer)
     
     def test_bbox_analyzer_analyze_basic(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         # Create minimal raw data
         raw_data = pd.DataFrame({
@@ -375,7 +375,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_with_polygon_bboxes(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         # BBox with polygon coordinates
         polygon = [[100, 150], [200, 150], [200, 250], [100, 250]]
@@ -404,7 +404,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_with_rect_bbox(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         # BBox with centered format
         bbox_record = {
@@ -432,7 +432,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_with_numeric_slide_index(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         raw_data = pd.DataFrame({
             "set_name": ["test_set", "test_set"],
@@ -454,7 +454,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_with_fixations(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         raw_data = pd.DataFrame({
             "set_name": ["test_set"],
@@ -481,7 +481,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
     
     def test_bbox_analyzer_with_empty_gaze_data(self):
         
-        analyzer = BBoxAttentionAnalyzer(self.output_folder)
+        analyzer = BBoxImagesAnalyzer(self.output_folder)
         
         raw_data = pd.DataFrame({
             "set_name": ["test_set"],
@@ -508,7 +508,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
             "value": [1, 2, 3],
         })
         
-        normalized = BBoxAttentionAnalyzer._normalize_slide_index_column(df)
+        normalized = BBoxImagesAnalyzer._normalize_slide_index_column(df)
         self.assertIn("slide_index", normalized.columns)
     
     def test_bbox_analyzer_filter_set_and_slide(self):
@@ -519,17 +519,17 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
             "value": [1, 2, 3, 4],
         })
         
-        filtered = BBoxAttentionAnalyzer._filter_set_and_slide(
+        filtered = BBoxImagesAnalyzer._filter_set_and_slide(
             df, set_name="s1", slide_index=0
         )
         self.assertEqual(len(filtered), 1)
     
     def test_bbox_analyzer_resolve_gaze_columns(self):
         
-        x, y, dur = BBoxAttentionAnalyzer._resolve_gaze_columns(use_fixations=True)
+        x, y, dur = BBoxImagesAnalyzer._resolve_gaze_columns(use_fixations=True)
         self.assertEqual((x, y, dur), ("x_mean", "y_mean", "duration"))
         
-        x, y, dur = BBoxAttentionAnalyzer._resolve_gaze_columns(use_fixations=False)
+        x, y, dur = BBoxImagesAnalyzer._resolve_gaze_columns(use_fixations=False)
         self.assertEqual((x, y, dur), ("avg_gaze_x", "avg_gaze_y", None))
 
 
