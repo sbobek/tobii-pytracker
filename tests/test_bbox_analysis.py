@@ -104,8 +104,8 @@ class TestBBoxGeneration(unittest.TestCase):
                 bbox["h"],
                 250.0,
             )
-            # AOI:
-            #       -375          0          +375
+            
+            
             cx = bbox["cx"]
             cy = bbox["cy"]
 

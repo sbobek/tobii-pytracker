@@ -18,19 +18,14 @@ from tobii_pytracker.analyze.models import (
 
 
 def combine_raw_and_gaze(raw_data, gaze_data):
-    """Combine raw_data and gaze_data as the new API expects.
-    
-    Creates N rows (one per gaze point) with raw data columns merged
-    with gaze point coordinates.
-    """
     if gaze_data.empty:
-        # Empty gaze data case - add empty avg_gaze columns
+        
         result = raw_data.copy()
         result['avg_gaze_x'] = pd.Series(dtype='float64')
         result['avg_gaze_y'] = pd.Series(dtype='float64')
         return result
     
-    # For each gaze point, create a row combining raw and gaze info
+    
     combined = pd.concat([
         raw_data.assign(
             avg_gaze_x=gaze_data["avg_gaze_x"].iloc[j] if "avg_gaze_x" in gaze_data else gaze_data.get("x_mean", pd.Series()).iloc[j],
@@ -168,7 +163,7 @@ class TestSaccadeAnalyzerCoverage(unittest.TestCase):
             min_duration=0.01
         )
         
-        # Create data with acceleration peaks
+        
         x = np.array([100 + i for i in range(50)])
         y = np.array([150 + i*0.5 for i in range(50)])
         
@@ -353,14 +348,14 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
         
         analyzer = BBoxImagesAnalyzer(self.output_folder)
         
-        # Create minimal raw data
+        
         raw_data = pd.DataFrame({
             "set_name": ["test_set"],
             "slide_index": [0],
             "objects_bboxes": [{}],
         })
         
-        # Create gaze data
+        
         gaze_data = pd.DataFrame({
             "avg_gaze_x": [100, 110, 120],
             "avg_gaze_y": [150, 160, 170],
@@ -377,7 +372,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
         
         analyzer = BBoxImagesAnalyzer(self.output_folder)
         
-        # BBox with polygon coordinates
+        
         polygon = [[100, 150], [200, 150], [200, 250], [100, 250]]
         bbox_record = {
             "bbox": {"x": 100, "y": 150, "w": 100, "h": 100},
@@ -406,7 +401,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
         
         analyzer = BBoxImagesAnalyzer(self.output_folder)
         
-        # BBox with centered format
+        
         bbox_record = {
             "bbox": {"cx": 150, "cy": 200, "w": 100, "h": 100},
             "rect_bbox": {"x": 100, "y": 150, "width": 100, "height": 100},
@@ -462,7 +457,7 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
             "objects_bboxes": [{}],
         })
         
-        # Fixation format data
+        
         gaze_data = pd.DataFrame({
             "x_mean": [110, 120, 130],
             "y_mean": [160, 170, 180],
@@ -472,8 +467,8 @@ class TestBBoxAttentionAnalyzerCoverage(unittest.TestCase):
             "slide_index": [0] * 3,
         })
         
-        # Note: use_fixations is no longer part of the API
-        # Rename x_mean/y_mean to avg_gaze_x/avg_gaze_y for compatibility
+        
+        
         gaze_data_renamed = gaze_data.rename(columns={"x_mean": "avg_gaze_x", "y_mean": "avg_gaze_y"})
         background_data = combine_raw_and_gaze(raw_data, gaze_data_renamed)
         result = analyzer.analyze(background_data=background_data)

@@ -21,19 +21,15 @@ from tobii_pytracker.analyze.models import (
 
 
 def combine_raw_and_gaze(raw_data, gaze_data):
-    """Combine raw_data and gaze_data as the new API expects.
-    
-    Creates N rows (one per gaze point) with raw data columns merged
-    with gaze point coordinates.
-    """
+
     if gaze_data.empty:
-        # Empty gaze data case - add empty avg_gaze columns
+        
         result = raw_data.copy()
         result['avg_gaze_x'] = pd.Series(dtype='float64')
         result['avg_gaze_y'] = pd.Series(dtype='float64')
         return result
     
-    # For each gaze point, create a row combining raw and gaze info
+    
     combined = pd.concat([
         raw_data.assign(
             avg_gaze_x=gaze_data["avg_gaze_x"].iloc[j] if "avg_gaze_x" in gaze_data else gaze_data.get("x_mean", pd.Series()).iloc[j],
@@ -82,17 +78,17 @@ class TestClusterAnalyzer(unittest.TestCase):
 
     def test_cluster_analyzer_analyze_with_empty_data(self):
         
-        # Skip this test due to sklearn import complexity
+        
         pass
 
     def test_cluster_analyzer_analyze_with_data(self):
         
-        # Skip this test due to sklearn import complexity
+        
         pass
 
     def test_cluster_analyzer_analyze_with_kmeans(self):
         
-        # Skip this test due to sklearn import complexity
+        
         pass
 
     def test_cluster_analyzer_plot_analysis(self):
@@ -107,11 +103,11 @@ class TestClusterAnalyzer(unittest.TestCase):
             "slide_index": [0, 0],
         })
         
-        # Create a dummy screenshot
+        
         screenshot_path = self.output_folder / "test_screenshot.png"
         screenshot_path.touch()
         
-        # Mock plt and imread to avoid file operations
+        
         with patch('matplotlib.pyplot.show'):
             with patch('matplotlib.pyplot.savefig'):
                 with patch('matplotlib.image.imread', return_value=np.zeros((100, 100, 3))):
@@ -150,7 +146,7 @@ class TestPlaceholderAnalyzers(unittest.TestCase):
             analyzer = ScanpathsAnalyzer(df)
             self.assertIsNotNone(analyzer)
         except TypeError:
-            # Expected if ScanpathsAnalyzer has issues with the parent class
+            
             pass
 
     def test_voice_transcription_init(self):
@@ -160,7 +156,7 @@ class TestPlaceholderAnalyzers(unittest.TestCase):
             analyzer = VoiceTranscription(df)
             self.assertIsNotNone(analyzer)
         except TypeError:
-            # Expected if VoiceTranscription has issues with the parent class
+            
             pass
 
 
@@ -216,13 +212,13 @@ class TestBaseAnalyzerHelpers(unittest.TestCase):
             "value": [10, 20],
         })
         
-        # Should not raise an exception
+        
         try:
             result = analyzer._resolve_gaze_columns(df)
-            # Result might be a tuple or dict
+            
             self.assertIsNotNone(result)
         except Exception as e:
-            # Log the exception but don't fail
+            
             print(f"_resolve_gaze_columns raised: {e}")
 
 
@@ -318,11 +314,11 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
         
         polygon = np.array([[0, 0], [10, 0], [10, 10], [0, 10]])
         
-        # Point inside
+        
         result = BBoxImagesAnalyzer._point_inside_polygon(5, 5, polygon)
         self.assertTrue(result)
         
-        # Point outside
+        
         result = BBoxImagesAnalyzer._point_inside_polygon(15, 15, polygon)
         self.assertFalse(result)
 
@@ -332,18 +328,18 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
         result = BBoxImagesAnalyzer._polygon_to_plot_coords(polygon, width=100, height=100)
         
         self.assertEqual(len(result), 3)
-        # First point should be (50, 50) when width/height are 100
+        
         np.testing.assert_array_equal(result[0], [50, 50])
 
     def test_point_inside_bbox(self):
         
         bbox = {"cx": 100.0, "cy": 150.0, "w": 40.0, "h": 60.0}
         
-        # Point inside
+        
         result = BBoxImagesAnalyzer._point_inside_bbox(100, 150, bbox)
         self.assertTrue(result)
         
-        # Point outside
+        
         result = BBoxImagesAnalyzer._point_inside_bbox(200, 200, bbox)
         self.assertFalse(result)
 
@@ -361,17 +357,15 @@ class TestBBoxAttentionAnalyzer(unittest.TestCase):
 
     def test_analyze_with_data(self):
         
-        # Skip this test - requires very specific data structure
+        
         pass
 
     def test_evaluate_method(self):
         
-        # Skip this test - requires very specific data structure
+        
         pass
 
     def test_plot_analysis_method(self):
-        
-        # Skip this test - requires very specific parameters
         pass
 
 
