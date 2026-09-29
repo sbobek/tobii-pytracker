@@ -59,18 +59,19 @@ Upgrade the packaging tools:
 
 .. code-block:: bash
 
-   python -m pip install --upgrade pip wheel
+   pip install --upgrade pip wheel
 
 Install ``tobii-pytracker`` from PyPI:
 
 .. code-block:: bash
 
-   python -m pip install tobii-pytracker
+   pip install tobii-pytracker
 
 
-Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper::
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
 
 .. code-block:: bash
+
    pip install  openai-whisper==20250625
   
 
