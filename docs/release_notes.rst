@@ -10,7 +10,7 @@ Release notes
 * Added VoiceTranscriptionAnalyzer for analyzing audio recordings and transcriptions
 * Added screen display number configuration option to support multi-monitor setups.
 * Fixed parsing timeseries bounding boxes in DataLoader.
-* Fixed text bbox visualization issues
+* Fixed text bbox visualization issues.
 
 0.1.2 (2025-11-17)
 -------------
