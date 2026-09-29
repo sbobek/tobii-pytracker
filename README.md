@@ -56,6 +56,12 @@ Note that we need psychopy in a version at least 2024.1.4
    pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
    ```
 
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
+
+  ``` sh
+  pip install  openai-whisper==20250625
+  ```
+
 ### Github repository
 
 Clone or download this repository to your local machine.
@@ -75,7 +81,11 @@ Note that we need psychopy in a version at least 2024.1.4
    pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
    ```
 
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
 
+  ``` sh
+  pip install  openai-whisper==20250625
+  ```
 ## Usage
 
 1. To run the script, use the following command (make sure you have activated virtual environment):
