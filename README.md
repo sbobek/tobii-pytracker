@@ -37,7 +37,28 @@ The framework integrates multiple data modalities commonly used as inputs for ML
 
 ## Installation
 
-1. Clone or download this repository to your local machine.
+You can either install `tobii-pytracker` directly form PyPi, or from this GitHub repository. Note that installing from github may include more recent updates, but also possibly less stable version.
+
+### PyPi
+
+Create virtual environtment and install `tobii-pytracker`
+
+``` sh
+   conda create --name pytracker-env python=3.10
+   conda activate pytracker-env
+   pip install tobii-pytracker
+```
+
+Install psychopy, with no-deps, to keep the installation simple and lightweight.
+Note that we need psychopy in a version at least 2024.1.4
+   
+   ```sh
+   pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
+   ```
+
+### Github repository
+
+Clone or download this repository to your local machine.
 
     ```sh
    conda create --name pytracker-env python=3.10
@@ -47,8 +68,8 @@ The framework integrates multiple data modalities commonly used as inputs for ML
    pip install .
    ```
 
-   Install psychopy, with no-deps, to keep the installation simple and lightweight.
-   Note that we need psychopy in a version at least 2024.1.4
+Install psychopy, with no-deps, to keep the installation simple and lightweight.
+Note that we need psychopy in a version at least 2024.1.4
    
    ```sh
    pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps

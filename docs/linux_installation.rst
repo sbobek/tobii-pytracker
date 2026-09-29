@@ -68,6 +68,11 @@ Install ``tobii-pytracker`` from PyPI:
    python -m pip install tobii-pytracker
 
 
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper::
+
+.. code-block:: bash
+   pip install  openai-whisper==20250625
+  
 
 Display configuration
 ---------------------

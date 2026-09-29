@@ -29,6 +29,11 @@ To install from source code::
    pip install .
    pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
 
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper::
+
+   pip install  openai-whisper==20250625
+  
+
 To run it in headless mode, just recording all of the gaze data from Tobii eye tracker just run the following command in the environment where tobii-pytracker is installed. The `--raw_data` flag will save all of the raw data from the eye tracker, not only gaze and pupil size narrowed to defined area of interest::
 
    tobii-pytracker --disable_psychopy --raw_data
@@ -37,7 +42,7 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
    :maxdepth: 2
    :caption: Installation
 
-   Windows <linux_installation>
+   Windows <windows_installation>
    Linux <linux_installation>
    Docker <docker_installation>
 
