@@ -33,6 +33,14 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
 
    tobii-pytracker --disable_psychopy --raw_data
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Installation
+
+   Windows <linux_installation>
+   Linux <linux_installation>
+   Docker <docker_installation>
+
 
 .. toctree::
    :maxdepth: 2
@@ -42,6 +50,7 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
    Commandline Usage <commandline_usage>
    Basic Usage examples <basic_examples>
    Eyetracker emulation <mouse_emulation>
+   End-to-End Examples <end_to_end_examples>
 
 .. toctree::
    :maxdepth: 2

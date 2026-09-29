@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tobii-pytracker"
-version = "0.1.2"
+version = "1.0.0"
 description = "A Python-based framework for Tobii eye tracker experiments and multimodal interaction."
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
@@ -13,6 +13,7 @@ authors = [
   { name = "Szymon Bobek", email = "szymon.bobek@gmail.com" },
   { name = "Sebastian Sęczyk", email = "sebastian.seczyk@gmail.com" },
   { name = "Jakub Pleśniak", email = "jakubpl2001@gmail.com" }
+  { name = "Dmytro Polishchuk", email = "dmitro.polischuk@gmail.com" }
 ]
 dependencies = [
   "six==1.16.0",
@@ -22,7 +23,6 @@ dependencies = [
   "scipy==1.13.1",
   "json_tricks==3.17.3",
   "requests==2.32.2",
-  "pyglet==1.4.11",
   "Pillow==10.3.0",
   "python-bidi==0.4.2",
   "pandas==2.2.2",
@@ -40,9 +40,12 @@ dependencies = [
   "tobii-research==2.0.0",
   "scikit-image>=0.25.2",
   "setuptools<=66.1.1",
+  "openai-whisper>=20250625",
+  'sounddevice==0.5.3',
+  'soundfile==0.13.1',
+  'pyglet==1.5.27; platform_system == "Linux"',
+  'pyglet==1.4.11; platform_system == "Windows"',
   'pywin32==311; platform_system == "Windows"',
-  'sounddevice==0.5.3; platform_system == "Windows"',
-  'soundfile==0.13.1; platform_system == "Windows"',
   'pyWinhook==1.6.2; platform_system == "Windows"'
 ]
 
@@ -55,4 +58,11 @@ classifiers = [
 
 [project.scripts]
 tobii-pytracker = "tobii_pytracker.main:cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tobii_pytracker*"]
 

@@ -107,123 +107,270 @@ class TextDataset(CustomDataset):
         self.data = [{"class": str(r[label_col]).lower(), "data": str(r[text_col]), "id": str(r[text_col])[:20].replace(" ","_")}
                      for _, r in df.iterrows()]  # add short id
 
-    def draw_stimulus(self, window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Draw text into provided PsychoPy window and compute per-line & per-word bboxes.
-        Returns dict with 'words' and 'lines' lists of bbox dicts.
-        """
-        text = str(sample["data"])
-        area_x, area_y = self.config.get_area_of_interest_size()
-        wrap_width = int(area_x * self.wrap_frac)
-
-        # Draw full paragraph so participant sees exactly the rendering
-        paragraph = visual.TextStim(
-            win=window,
-            text=text,
-            pos=(0, 0),
-            height=self.font_height,
-            wrapWidth=wrap_width,
-            alignText="left",   # we'll center the block ourselves by computing left offset
-            color="white"
-        )
-        paragraph.draw()
-        window.flip()
-
-        # Prepare measurement: measure each word width/height using same window/font
-        # We do NOT create a temporary window; we use the same 'window'.
-        # Split into explicit lines first (respect \n in text)
-        # We'll reflow words into lines using measured widths and wrap_width (PsychoPy's wrapWidth)
-        raw_lines = text.split("\n")
-        words_all = []
-        for rl in raw_lines:
-            for w in rl.split():
-                words_all.append(w)
-
-        # measure widths/heights
-        word_dims: List[Tuple[str, float, float]] = []
-        for w in words_all:
-            ts = visual.TextStim(win=window, text=w, height=self.font_height, wrapWidth=None)
-            w_w, w_h = ts.boundingBox
-            word_dims.append((w, float(w_w), float(w_h)))
-
-        # space width
-        space_ts = visual.TextStim(win=window, text=" ", height=self.font_height)
-        space_w = float(space_ts.boundingBox[0] or (self.font_height * 0.3))
-
-        # Reflow words into lines using measured widths and wrap_width
-        lines: List[List[Tuple[str, float, float]]] = []
-        cur_line: List[Tuple[str, float, float]] = []
-        cur_width = 0.0
-        iter_words = iter(word_dims)
-        for w, w_w, w_h in iter_words:
-            add_w = w_w if cur_width == 0 else (space_w + w_w)
-            if cur_width + add_w <= wrap_width or cur_width == 0:
-                cur_line.append((w, w_w, w_h))
-                cur_width = cur_width + add_w if cur_width != 0 else w_w
-            else:
-                lines.append(cur_line)
-                cur_line = [(w, w_w, w_h)]
-                cur_width = w_w
-        if cur_line:
-            lines.append(cur_line)
-
-        # compute line heights and total height
-        line_heights = [max((h for (_, _, h) in line), default=self.font_height) for line in lines]
-        total_text_height = sum(line_heights)
-        top_y = (area_y - total_text_height) / 2.0  # top coordinate (px, top-left origin)
-
-        # compute line widths to center each line horizontally
-        line_widths = []
-        for line in lines:
-            lw = 0.0
-            for i, (_, w_w, _) in enumerate(line):
-                lw += w_w
-                if i < len(line) - 1:
-                    lw += space_w
-            line_widths.append(lw)
-
-        # Build line and word bboxes (pixel coords top-left origin), then convert to centered coords
-        words_out: List[Dict[str, Any]] = []
-        lines_out: List[Dict[str, Any]] = []
-        y_cursor = top_y
-
-        for li, line in enumerate(lines):
-            lw = line_widths[li]
-            line_h = line_heights[li]
-            left_x = (area_x - lw) / 2.0  # left x to center the line in AOI
-            line_x_min = left_x
-            line_x_max = left_x + lw
-            line_y_min = y_cursor
-            line_y_max = y_cursor + line_h
-
-            line_bbox_centered = _to_centered_bbox_from_tl(line_x_min, line_y_min, line_x_max, line_y_max, area_x, area_y)
-            lines_out.append({
-                "text": " ".join([w for (w, _, _) in line]),
-                "conf": 1.0,
-                "bbox": line_bbox_centered
-            })
-
-            # words
-            x_cursor = left_x
-            for word, w_w, w_h in line:
-                w_x_min = x_cursor
-                w_x_max = x_cursor + w_w
-                # center vertically in the line
-                w_y_min = y_cursor + (line_h - w_h) / 2.0
-                w_y_max = w_y_min + w_h
-
-                word_bbox_centered = _to_centered_bbox_from_tl(w_x_min, w_y_min, w_x_max, w_y_max, area_x, area_y)
-                words_out.append({
-                    "word": word,
-                    "conf": 1.0,
-                    "bbox": word_bbox_centered
+    def draw_stimulus(self,window: visual.Window, sample: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Draw text using an explicitly calculated word layout and return exact
+            per-word and per-line bounding boxes.
+    
+            Coordinate system:
+            - origin at the center of the AOI;
+            - x increases to the right;
+            - y increases upward;
+            - all coordinates and dimensions are in pixels.
+    
+            Returns:
+                {
+                    "words": [
+                        {
+                            "word": str,
+                            "conf": 1.0,
+                            "bbox": {"cx": ..., "cy": ..., "w": ..., "h": ...}
+                        },
+                        ...
+                    ],
+                    "lines": [
+                        {
+                            "text": str,
+                            "conf": 1.0,
+                            "bbox": {"cx": ..., "cy": ..., "w": ..., "h": ...}
+                        },
+                        ...
+                    ]
+                }
+            """
+            text = str(sample["data"])
+    
+            area_x, area_y = self.config.get_area_of_interest_size()
+            wrap_width = float(area_x * self.wrap_frac)
+    
+            # Optional configuration values, with reasonable defaults.
+            font_name = self.text_cfg.get("font", None)
+            color = self.text_cfg.get("color", "white")
+            line_spacing = float(self.text_cfg.get("line_spacing", 1.2))
+    
+            words_out: List[Dict[str, Any]] = []
+            lines_out: List[Dict[str, Any]] = []
+    
+            common_stim_kwargs = {
+                "win": window,
+                "units": "pix",
+                "height": self.font_height,
+                "color": color,
+                "wrapWidth": None,
+                "anchorHoriz": "center",
+                "anchorVert": "center",
+                "alignText": "center",
+            }
+    
+            if font_name:
+                common_stim_kwargs["font"] = font_name
+    
+            # ------------------------------------------------------------------
+            # Measure the width of a normal space.
+            # ------------------------------------------------------------------
+            space_stim = visual.TextStim(
+                text=" ",
+                **common_stim_kwargs,
+            )
+    
+            space_w = float(space_stim.boundingBox[0])
+    
+            # Some PsychoPy/font-backend combinations may report zero width
+            # for a whitespace-only stimulus.
+            if space_w <= 0:
+                test_stim = visual.TextStim(
+                    text="a a",
+                    **common_stim_kwargs,
+                )
+                single_stim = visual.TextStim(
+                    text="aa",
+                    **common_stim_kwargs,
+                )
+                space_w = float(
+                    test_stim.boundingBox[0] - single_stim.boundingBox[0]
+                )
+    
+            if space_w <= 0:
+                space_w = self.font_height * 0.3
+    
+            # ------------------------------------------------------------------
+            # Measure words and perform wrapping.
+            #
+            # Each entry in `lines` is:
+            #     {
+            #         "words": [(word, width, height), ...],
+            #         "explicit_empty": bool
+            #     }
+            #
+            # Explicit newline boundaries are preserved.
+            # ------------------------------------------------------------------
+            lines: List[Dict[str, Any]] = []
+    
+            for raw_line in text.split("\n"):
+                raw_words = raw_line.split()
+    
+                # Preserve explicit blank lines.
+                if not raw_words:
+                    lines.append({
+                        "words": [],
+                        "explicit_empty": True,
+                    })
+                    continue
+    
+                measured_words: List[Tuple[str, float, float]] = []
+    
+                for word in raw_words:
+                    measurement_stim = visual.TextStim(
+                        text=word,
+                        **common_stim_kwargs,
+                    )
+    
+                    word_w, word_h = measurement_stim.boundingBox
+    
+                    measured_words.append((
+                        word,
+                        max(1.0, float(word_w)),
+                        max(1.0, float(word_h)),
+                    ))
+    
+                current_line: List[Tuple[str, float, float]] = []
+                current_width = 0.0
+    
+                for word, word_w, word_h in measured_words:
+                    if current_line:
+                        candidate_width = current_width + space_w + word_w
+                    else:
+                        candidate_width = word_w
+    
+                    if current_line and candidate_width > wrap_width:
+                        lines.append({
+                            "words": current_line,
+                            "explicit_empty": False,
+                        })
+    
+                        current_line = [(word, word_w, word_h)]
+                        current_width = word_w
+                    else:
+                        current_line.append((word, word_w, word_h))
+                        current_width = candidate_width
+    
+                if current_line:
+                    lines.append({
+                        "words": current_line,
+                        "explicit_empty": False,
+                    })
+    
+            # Handle a completely empty string.
+            if not lines:
+                lines.append({
+                    "words": [],
+                    "explicit_empty": True,
                 })
-
-                x_cursor += w_w + space_w
-
-            y_cursor += line_h
-
-        return {"words": words_out, "lines": lines_out}
+    
+            # ------------------------------------------------------------------
+            # Determine a consistent line advance.
+            #
+            # We should not sum individual glyph heights because glyph bounds
+            # differ for words with ascenders and descenders.
+            # ------------------------------------------------------------------
+            measured_heights = [
+                word_h
+                for line in lines
+                for _, _, word_h in line["words"]
+            ]
+    
+            if measured_heights:
+                base_line_height = max(
+                    float(self.font_height),
+                    max(measured_heights),
+                )
+            else:
+                base_line_height = float(self.font_height)
+    
+            line_advance = base_line_height * line_spacing
+    
+            total_block_height = (
+                base_line_height
+                + max(0, len(lines) - 1) * line_advance
+            )
+    
+            # Center the complete text block vertically.
+            first_line_cy = (
+                total_block_height / 2.0
+                - base_line_height / 2.0
+            )
+    
+            # Text is left-aligned within a wrap box centered in the AOI.
+            wrap_left_x = -wrap_width / 2.0
+    
+            # ------------------------------------------------------------------
+            # Draw words using the same coordinates used for the bboxes.
+            # ------------------------------------------------------------------
+            for line_index, line_info in enumerate(lines):
+                line_words = line_info["words"]
+    
+                line_cy = first_line_cy - line_index * line_advance
+    
+                # An explicit empty line affects vertical positioning but has no
+                # drawable bbox.
+                if not line_words:
+                    continue
+    
+                line_width = sum(word_w for _, word_w, _ in line_words)
+                line_width += space_w * max(0, len(line_words) - 1)
+    
+                line_height = max(
+                    word_h for _, _, word_h in line_words
+                )
+    
+                line_left_x = wrap_left_x
+                line_cx = line_left_x + line_width / 2.0
+    
+                lines_out.append({
+                    "text": " ".join(word for word, _, _ in line_words),
+                    "conf": 1.0,
+                    "bbox": {
+                        "cx": float(line_cx),
+                        "cy": float(line_cy),
+                        "w": float(line_width),
+                        "h": float(line_height),
+                    },
+                })
+    
+                x_cursor = line_left_x
+    
+                for word_index, (word, word_w, word_h) in enumerate(line_words):
+                    word_cx = x_cursor + word_w / 2.0
+    
+                    word_stim = visual.TextStim(
+                        text=word,
+                        pos=(word_cx, line_cy),
+                        **common_stim_kwargs,
+                    )
+                    word_stim.draw()
+    
+                    words_out.append({
+                        "word": word,
+                        "conf": 1.0,
+                        "bbox": {
+                            "cx": float(word_cx),
+                            "cy": float(line_cy),
+                            "w": float(word_w),
+                            "h": float(word_h),
+                        },
+                    })
+    
+                    x_cursor += word_w
+    
+                    if word_index < len(line_words) - 1:
+                        x_cursor += space_w
+    
+            window.flip()
+    
+            return {
+                "words": words_out,
+                "lines": lines_out,
+            }
 
 class ImageDataset(CustomDataset):
     """

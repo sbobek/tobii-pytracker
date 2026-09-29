@@ -1,10 +1,16 @@
 Release notes
 ==============
 
-0.2.0 (2026-09-02)
+1.0.0 (2026-09-24)
+* Major release with significant improvements and new features.
+* Added support for BoundingBox detection and analysis for all data types (image, text, time-series).
+* Docker support added for easier deployment and reproducibility of experiments.
+* Improved documentation and examples, including new notebooks for advanced analysis workflows.
+* Tests and continuous integration added to ensure code quality and stability.
 * Added VoiceTranscriptionAnalyzer for analyzing audio recordings and transcriptions
 * Added screen display number configuration option to support multi-monitor setups.
 * Fixed parsing timeseries bounding boxes in DataLoader.
+* Fixed text bbox visualization issues
 
 0.1.2 (2025-11-17)
 -------------
