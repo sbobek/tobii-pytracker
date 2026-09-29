@@ -12,7 +12,7 @@ license = { text = "MIT" }
 authors = [
   { name = "Szymon Bobek", email = "szymon.bobek@gmail.com" },
   { name = "Sebastian Sęczyk", email = "sebastian.seczyk@gmail.com" },
-  { name = "Jakub Pleśniak", email = "jakubpl2001@gmail.com" }
+  { name = "Jakub Pleśniak", email = "jakubpl2001@gmail.com" },
   { name = "Dmytro Polishchuk", email = "dmitro.polischuk@gmail.com" }
 ]
 dependencies = [

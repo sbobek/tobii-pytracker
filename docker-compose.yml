@@ -1,0 +1,48 @@
+services:
+  tobii-pytracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tobii-pytracker
+    environment:
+      - DISPLAY=:99
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/src
+      - QT_QPA_PLATFORM=offscreen
+      - ENABLE_EYETRACKER=false
+      - HOME=/tmp
+      - XDG_CACHE_HOME=/tmp/.cache
+      - MPLCONFIGDIR=/tmp/.matplotlib
+    volumes:
+      - ./configs:/app/configs:rw
+      - ./datasets:/app/datasets:ro
+      - ./output:/app/output:rw
+      - ./custom_runtime_models:/app/custom_runtime_models:ro
+    ports:
+      - "5900:5900"
+    networks:
+      - tobii-network
+    command: >
+      bash -lc "
+      set -euo pipefail;
+      echo 'Starting Xvfb...';
+      Xvfb :99 -screen 0 1920x1080x24 -ac &
+      sleep 2;
+      echo 'Starting x11vnc...';
+      x11vnc -display :99 -forever -nopw -xkb &
+      sleep 1;
+      echo 'Starting tobii-pytracker...';
+      if [ \"${ENABLE_EYETRACKER:-false}\" = \"true\" ]; then
+        echo 'Eye tracker mode: enabled';
+        exec python -m tobii_pytracker.main --config_file ./configs/config.docker.yaml --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker;
+      else
+        echo 'Eye tracker mode: disabled';
+        exec python -m tobii_pytracker.main --config_file ./configs/config.docker.yaml;
+      fi
+      "
+    stdin_open: true
+    tty: true
+
+networks:
+  tobii-network:
+    driver: bridge

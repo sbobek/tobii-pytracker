@@ -1,14 +1,12 @@
-import json
-import numpy as np
-import pandas as pd
-from pathlib import Path
-from typing import Optional, Any, List, Literal
-from scipy.stats import entropy
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from .data_loader import DataLoader
-from scipy.ndimage import gaussian_filter
 
+from typing import Literal
+from tobii_pytracker.configs.custom_config import CustomConfig
+from pathlib import Path
+from typing import Any, Optional
+
+import pandas as pd
+from matplotlib.patches import Rectangle
+from PIL import Image
 
 # ======================================================
 # BASE ANALYZER
@@ -25,11 +23,13 @@ class BaseAnalyzer:
       columns like avg_gaze_x, avg_gaze_y, input_data, slide_index, etc.
     """
 
-    def __init__(self, output_folder: Path):
+    def __init__(self, output_folder: Path, config: CustomConfig = None):
         self.output_folder = Path(output_folder)
+        self.output_folder.mkdir(parents=True, exist_ok=True)
         self.results: Optional[pd.DataFrame] = None
+        self.config = config
 
-    def analyze(self, *args, **kwargs) -> pd.DataFrame:
+    def analyze(self, *args, **kwargs) -> Any:
         raise NotImplementedError
 
     def plot_analysis(self, *args, **kwargs):
@@ -42,6 +42,48 @@ class BaseAnalyzer:
         filepath = self.output_folder / filename
         self.results.to_json(filepath, orient="records", indent=4, force_ascii=False)
 
+    @staticmethod
+    def _normalize_slide_index_column(
+        data: pd.DataFrame,
+        column: str = "slide_index",
+    ) -> pd.DataFrame:
+        normalized = data.copy()
+        normalized[column] = pd.to_numeric(
+            normalized[column],
+            errors="coerce",
+        ).astype("Int64")
+        return normalized
+
+    @staticmethod
+    def _filter_set_and_slide(
+        data: pd.DataFrame,
+        set_name: Optional[Any] = None,
+        slide_index: Optional[Any] = None,
+    ) -> pd.DataFrame:
+        filtered = data
+
+        if set_name is not None and "set_name" in filtered.columns:
+            filtered = filtered[
+                filtered["set_name"].astype(str) == str(set_name)
+            ]
+
+        if slide_index is not None and "slide_index" in filtered.columns:
+            filtered = filtered[
+                pd.to_numeric(
+                    filtered["slide_index"],
+                    errors="coerce",
+                ) == int(slide_index)
+            ]
+
+        return filtered
+
+    @staticmethod
+    def _resolve_gaze_columns(
+        use_fixations: bool,
+    ) -> tuple[str, str, Optional[str]]:
+        if use_fixations:
+            return "x_mean", "y_mean", "duration"
+        return "avg_gaze_x", "avg_gaze_y", None
 
 
 # ---------------------------------------------------------------------
@@ -88,9 +130,9 @@ class HeatmapAnalyzer:
     # ANALYSIS
     # ======================================================
     def analyze(
-        self,
-        background_data: pd.DataFrame,
-        per: str = "global",
+            self,
+            background_data: pd.DataFrame,
+            per: str = "global",
     ) -> pd.DataFrame:
         """
         Perform gaze heatmap analysis by aggregating gaze data per group.
@@ -148,17 +190,17 @@ class HeatmapAnalyzer:
     # VISUALIZATION
     # ======================================================
     def plot_analysis(
-        self,
-        background_data: pd.DataFrame,
-        screenshot_path: Path,
-        title: Optional[str] = None,
-        flip_y: bool = True,
-        blur_sigma: float = 3.0,
-        bins: int = 100,
-        cmap: str = "hot",
-        alpha: float = 0.6,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            background_data: pd.DataFrame,
+            screenshot_path: Path,
+            title: Optional[str] = None,
+            flip_y: bool = True,
+            blur_sigma: float = 3.0,
+            bins: int = 100,
+            cmap: str = "hot",
+            alpha: float = 0.6,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Plot gaze heatmap overlayed over the given screenshot.
@@ -196,7 +238,8 @@ class HeatmapAnalyzer:
 
         # --- Prepare gaze coordinates ---
         avg_x = W / 2 + background_data["avg_gaze_x"].dropna().values
-        avg_y = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data["avg_gaze_y"].dropna().values
+        avg_y = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data[
+            "avg_gaze_y"].dropna().values
 
         # --- Compute heatmap ---
         heatmap, _, _ = np.histogram2d(avg_x, avg_y, bins=bins, range=[[0, W], [0, H]])
@@ -256,9 +299,9 @@ class FocusMapAnalyzer:
     # ANALYSIS
     # ======================================================
     def analyze(
-        self,
-        background_data: pd.DataFrame,
-        per: str = "global",
+            self,
+            background_data: pd.DataFrame,
+            per: str = "global",
     ) -> pd.DataFrame:
         """
         Compute summary stats similarly to HeatmapAnalyzer but for API consistency.
@@ -312,17 +355,17 @@ class FocusMapAnalyzer:
     # VISUALIZATION (signature matches HeatmapAnalyzer.plot_analysis)
     # ======================================================
     def plot_analysis(
-        self,
-        background_data: pd.DataFrame,
-        screenshot_path: Path,
-        title: Optional[str] = None,
-        flip_y: bool = True,
-        blur_sigma: float = 3.0,
-        bins: int = 100,
-        cmap: str = "hot",
-        alpha: float = 0.6,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            background_data: pd.DataFrame,
+            screenshot_path: Path,
+            title: Optional[str] = None,
+            flip_y: bool = True,
+            blur_sigma: float = 3.0,
+            bins: int = 100,
+            cmap: str = "hot",
+            alpha: float = 0.6,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Plot focus map (inverted heatmap) overlayed over the screenshot.
@@ -411,14 +454,14 @@ class SaccadeAnalyzer:
     """
 
     def __init__(
-        self,
-        output_folder: Path,
-        method: Literal["ivt", "acceleration"] = "ivt",
-        velocity_threshold: float = 100.0,
-        acceleration_threshold: float = 5000.0,
-        min_duration: float = 0.01,
-        filter_micro_saccades: bool = False,
-        micro_saccade_threshold: float = 30.0,
+            self,
+            output_folder: Path,
+            method: Literal["ivt", "acceleration"] = "ivt",
+            velocity_threshold: float = 100.0,
+            acceleration_threshold: float = 5000.0,
+            min_duration: float = 0.01,
+            filter_micro_saccades: bool = False,
+            micro_saccade_threshold: float = 30.0,
     ):
         self.output_folder = Path(output_folder)
         self.output_folder.mkdir(parents=True, exist_ok=True)
@@ -470,7 +513,7 @@ class SaccadeAnalyzer:
             g = g.dropna(subset=["x_prev", "y_prev", "t_prev", "dt"])
             g["dt"] = g["dt"].replace(0, np.nan)
 
-            g["amplitude"] = np.sqrt(g["dx"]**2 + g["dy"]**2)
+            g["amplitude"] = np.sqrt(g["dx"] ** 2 + g["dy"] ** 2)
             g["velocity"] = g["amplitude"] / g["dt"]
             g["acceleration"] = g["velocity"].diff() / g["dt"]
 
@@ -505,8 +548,8 @@ class SaccadeAnalyzer:
                     continue
 
                 amp = np.sqrt(
-                    (seg["avg_gaze_x"].iloc[-1] - seg["x_prev"].iloc[0])**2 +
-                    (seg["avg_gaze_y"].iloc[-1] - seg["y_prev"].iloc[0])**2
+                    (seg["avg_gaze_x"].iloc[-1] - seg["x_prev"].iloc[0]) ** 2 +
+                    (seg["avg_gaze_y"].iloc[-1] - seg["y_prev"].iloc[0]) ** 2
                 )
 
                 # Optional micro-saccade filtering
@@ -545,18 +588,18 @@ class SaccadeAnalyzer:
     # VISUALIZATION
     # ======================================================
     def plot_analysis(
-        self,
-        saccades: pd.DataFrame,
-        screenshot_path: Path,
-        set_name: Optional[str] = None,
-        slide_index: Optional[int] = None,
-        title: Optional[str] = None,
-        flip_y: bool = True,
-        color: str = "cyan",
-        alpha: float = 0.8,
-        linewidth: float = 2.0,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            saccades: pd.DataFrame,
+            screenshot_path: Path,
+            set_name: Optional[str] = None,
+            slide_index: Optional[int] = None,
+            title: Optional[str] = None,
+            flip_y: bool = True,
+            color: str = "cyan",
+            alpha: float = 0.8,
+            linewidth: float = 2.0,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Overlay saccades on top of the screenshot.
@@ -629,7 +672,6 @@ class SaccadeAnalyzer:
             plt.close(fig)
 
 
-
 class FixationAnalyzer:
     """
     Detects and visualizes gaze fixations from time-series gaze data.
@@ -656,12 +698,12 @@ class FixationAnalyzer:
     """
 
     def __init__(
-        self,
-        output_folder: Path,
-        method: Literal["dispersion", "velocity"] = "dispersion",
-        dispersion_threshold: float = 50.0,
-        min_duration: float = 0.1,
-        velocity_threshold: float = 100.0,
+            self,
+            output_folder: Path,
+            method: Literal["dispersion", "velocity"] = "dispersion",
+            dispersion_threshold: float = 50.0,
+            min_duration: float = 0.1,
+            velocity_threshold: float = 100.0,
     ):
         self.output_folder = Path(output_folder)
         self.output_folder.mkdir(parents=True, exist_ok=True)
@@ -768,7 +810,7 @@ class FixationAnalyzer:
         g["dx"] = g["avg_gaze_x"].diff()
         g["dy"] = g["avg_gaze_y"].diff()
         g["dt"] = g["system_time"].diff()
-        g["velocity"] = np.sqrt(g["dx"]**2 + g["dy"]**2) / g["dt"]
+        g["velocity"] = np.sqrt(g["dx"] ** 2 + g["dy"] ** 2) / g["dt"]
         g["is_fix"] = g["velocity"] < self.velocity_threshold
 
         fixations = []
@@ -804,18 +846,18 @@ class FixationAnalyzer:
     # VISUALIZATION
     # ======================================================
     def plot_analysis(
-        self,
-        fixations: pd.DataFrame,
-        screenshot_path: Path,
-        set_name: Optional[str] = None,
-        slide_index: Optional[int] = None,
-        title: Optional[str] = None,
-        flip_y: bool = True,
-        color: str = "yellow",
-        alpha: float = 0.7,
-        size_scale: float = 2000.0,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            fixations: pd.DataFrame,
+            screenshot_path: Path,
+            set_name: Optional[str] = None,
+            slide_index: Optional[int] = None,
+            title: Optional[str] = None,
+            flip_y: bool = True,
+            color: str = "yellow",
+            alpha: float = 0.7,
+            size_scale: float = 2000.0,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Overlay fixations on a slide image.
@@ -881,8 +923,6 @@ class FixationAnalyzer:
             plt.close(fig)
 
 
-
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -913,11 +953,11 @@ class EntropyAnalyzer:
     # ANALYSIS
     # ======================================================
     def analyze(
-        self,
-        background_data: pd.DataFrame,
-        per: str = "slide",
-        bins: int = 100,
-        use_convex_hull: bool = True,
+            self,
+            background_data: pd.DataFrame,
+            per: str = "slide",
+            bins: int = 100,
+            use_convex_hull: bool = True,
     ) -> pd.DataFrame:
         """
         Compute spatial entropy of gaze distributions.
@@ -997,17 +1037,17 @@ class EntropyAnalyzer:
     # VISUALIZATION
     # ======================================================
     def plot_analysis(
-        self,
-        background_data: pd.DataFrame,
-        screenshot_path: Path,
-        title: Optional[str] = None,
-        flip_y: bool = True,
-        bins: int = 100,
-        blur_sigma: float = 3.0,
-        cmap: str = "hot",
-        alpha: float = 0.6,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            background_data: pd.DataFrame,
+            screenshot_path: Path,
+            title: Optional[str] = None,
+            flip_y: bool = True,
+            bins: int = 100,
+            blur_sigma: float = 3.0,
+            cmap: str = "hot",
+            alpha: float = 0.6,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Visualize gaze entropy overlayed on an image (heatmap + convex hull).
@@ -1045,7 +1085,8 @@ class EntropyAnalyzer:
 
         # Convert coordinates
         xs = W / 2 + background_data["avg_gaze_x"].dropna().values
-        ys = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data["avg_gaze_y"].dropna().values
+        ys = H / 2 - background_data["avg_gaze_y"].dropna().values if flip_y else H / 2 + background_data[
+            "avg_gaze_y"].dropna().values
 
         # Compute heatmap for visualization
         heatmap, _, _ = np.histogram2d(xs, ys, bins=bins, range=[[0, W], [0, H]])
@@ -1080,7 +1121,6 @@ class EntropyAnalyzer:
             plt.show()
         else:
             plt.close(fig)
-
 
 
 import numpy as np
@@ -1121,13 +1161,13 @@ class ClusterAnalyzer:
     """
 
     def __init__(
-        self,
-        output_folder: Path,
-        columns: Optional[List[str]] = None,
-        clustering_model: Optional[object] = None,
-        eps: float = 0.05,
-        min_samples: int = 5,
-        n_clusters: Optional[int] = None,
+            self,
+            output_folder: Path,
+            columns: Optional[List[str]] = None,
+            clustering_model: Optional[object] = None,
+            eps: float = 0.05,
+            min_samples: int = 5,
+            n_clusters: Optional[int] = None,
     ):
         self.output_folder = Path(output_folder)
         self.output_folder.mkdir(parents=True, exist_ok=True)
@@ -1143,12 +1183,12 @@ class ClusterAnalyzer:
     # ANALYSIS
     # ======================================================
     def analyze(
-        self,
-        data: pd.DataFrame,
-        clustering_model: Optional[object] = None,
-        eps: Optional[float] = None,
-        min_samples: Optional[int] = None,
-        n_clusters: Optional[int] = None,
+            self,
+            data: pd.DataFrame,
+            clustering_model: Optional[object] = None,
+            eps: Optional[float] = None,
+            min_samples: Optional[int] = None,
+            n_clusters: Optional[int] = None,
     ) -> pd.DataFrame:
         """
         Perform clustering on gaze coordinates.
@@ -1206,18 +1246,18 @@ class ClusterAnalyzer:
     # VISUALIZATION
     # ======================================================
     def plot_analysis(
-        self,
-        background_data: pd.DataFrame,
-        screenshot_path: Path,
-        title: Optional[str] = None,
-        set_name: Optional[str] = None,
-        slide_index: Optional[int] = None,
-        flip_y: bool = True,
-        alpha: float = 0.7,
-        point_size: float = 30.0,
-        show_noise: bool = True,
-        show: bool = True,
-        save_path: Optional[Path] = None,
+            self,
+            background_data: pd.DataFrame,
+            screenshot_path: Path,
+            title: Optional[str] = None,
+            set_name: Optional[str] = None,
+            slide_index: Optional[int] = None,
+            flip_y: bool = True,
+            alpha: float = 0.7,
+            point_size: float = 30.0,
+            show_noise: bool = True,
+            show: bool = True,
+            save_path: Optional[Path] = None,
     ):
         """
         Visualize gaze points colored by cluster assignment.
@@ -1909,6 +1949,7 @@ class VoiceTranscription(BaseAnalyzer):
         filename = filename or f"{self.__class__.__name__}_results.json"
         filepath = self.output_folder / filename
 
+        self.output_folder.mkdir(parents=True, exist_ok=True)
         self.results.to_json(filepath, orient="records", indent=4, force_ascii=False)
 
         # optionally save a flat CSV version without raw gaze point lists
@@ -2197,3 +2238,379 @@ class VoiceTranscription(BaseAnalyzer):
             plt.show()
         else:
             plt.close(fig)
+
+from .bbox import (
+    analyze_bbox_attention,
+    bbox_edges_centered,
+    evaluate_bbox_attention,
+    plot_bbox_attention,
+    extract_text_bboxes,
+    extract_gaze_points,
+    gaze_inside_bbox
+)
+
+
+class BBoxImagesAnalyzer(BaseAnalyzer):
+
+    def __init__(
+        self,
+        output_folder: Path,
+        config: CustomConfig = None,
+    ):
+        super().__init__(output_folder, config=config)
+
+    @staticmethod
+    def _parse_objects_bboxes(value: Any) -> Dict[str, Any]:
+        return parse_objects_bboxes(value)
+
+    @staticmethod
+    def _bbox_edges_centered(bbox: Dict[str, float]) -> Dict[str, float]:
+        return bbox_edges_centered(bbox)
+
+    @staticmethod
+    def _polygon_vertices(value: Any) -> Optional[np.ndarray]:
+        return polygon_vertices(value)
+
+    @staticmethod
+    def _point_inside_polygon(x: float, y: float, polygon: np.ndarray) -> bool:
+        return point_inside_polygon(x, y, polygon)
+
+    @staticmethod
+    def _polygon_to_plot_coords(
+        polygon: np.ndarray,
+        width: float,
+        height: float,
+    ) -> np.ndarray:
+        return polygon_to_plot_coords(polygon, width, height)
+
+    @staticmethod
+    def _point_inside_bbox(
+        x: float,
+        y: float,
+        bbox: Dict[str, float],
+        margin: float = 2.0,
+    ) -> bool:
+        return point_inside_bbox(x, y, bbox, margin=margin)
+
+    def analyze(
+        self,
+        background_data: pd.DataFrame,
+    ) -> pd.DataFrame:
+        raw_cols = ['set_name', 'slide_index', 'objects_bboxes']
+        gaze_cols = ['set_name', 'slide_index', 'avg_gaze_x', 'avg_gaze_y']
+        
+        raw_data = background_data[raw_cols].drop_duplicates(
+            subset=['set_name', 'slide_index'], keep='first'
+        ).reset_index(drop=True)
+        
+        gaze_data = background_data[gaze_cols].copy()
+        
+        result = analyze_bbox_attention(
+            raw_data=raw_data,
+            gaze_data=gaze_data,
+            use_fixations=False,
+            normalize_slide_index_column=self._normalize_slide_index_column,
+            filter_set_and_slide=self._filter_set_and_slide,
+            resolve_gaze_columns=self._resolve_gaze_columns,
+        )
+        self.results = result
+        return result
+
+    def evaluate(
+            self,
+            scored_bboxes: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        df = scored_bboxes if scored_bboxes is not None else self.results
+        return evaluate_bbox_attention(df)
+
+    def plot_analysis(
+            self,
+            scored_bboxes: pd.DataFrame,
+            gaze_data: pd.DataFrame,
+            screenshot_path: Path,
+            set_name: Optional[str] = None,
+            slide_index: Optional[int] = None,
+            title: Optional[str] = None,
+            top_k: Optional[int] = 20,
+            min_hits: int = 1,
+            show_gaze: bool = True,
+            show: bool = True,
+            save_path: Optional[Path] = None,
+    ):
+        return plot_bbox_attention(
+            scored_bboxes=scored_bboxes,
+            gaze_data=gaze_data,
+            screenshot_path=screenshot_path,
+            set_name=set_name,
+            slide_index=slide_index,
+            title=title,
+            top_k=top_k,
+            min_hits=min_hits,
+            show_gaze=show_gaze,
+            show=show,
+            save_path=save_path,
+            filter_set_and_slide=self._filter_set_and_slide,
+        )
+
+
+from .bbox import (
+    parse_objects_bboxes,
+    parse_input_data,
+    extract_timeseries_bboxes,
+    point_inside_bbox,
+    point_inside_polygon,
+    polygon_to_plot_coords,
+    polygon_vertices,
+    get_plot_bounds,
+    calculate_points,
+    get_valid_gaze,
+    get_visited_bboxes,
+    get_series_range,
+    setup_ax_rectanulars,
+    add_rect_to_image_bbox
+)
+
+class BBoxTimeSeriesAnalyzer(BaseAnalyzer):
+
+    def __init__(
+        self,
+        output_folder: Path,
+        config: CustomConfig = None,
+    ):
+        super().__init__(output_folder, config=config)
+
+    def analyze(self, background_data: pd.DataFrame) -> dict[str, Any]:
+        row = background_data.iloc[0]
+        input_data = parse_input_data(row["input_data"])
+        timeseries_bboxes = extract_timeseries_bboxes(row["objects_bboxes"])
+        area_x, area_y = self.config.get_area_of_interest_size()
+        plot_x_min, plot_y_min, plot_x_max, plot_y_max = get_plot_bounds(
+            area_x,
+            area_y,
+        )
+        n_points = len(input_data)
+        if n_points == 0:
+            raise ValueError("input_data is empty for the selected slide")
+        g_min, g_max = get_series_range(input_data)
+        points_x, points_y = calculate_points(
+            input_data=input_data,
+            area_x=area_x,
+            area_y=area_y,
+            plot_x_min=plot_x_min,
+            plot_y_min=plot_y_min,
+            plot_x_max=plot_x_max,
+            plot_y_max=plot_y_max,
+            g_min=g_min,
+            g_max=g_max,
+        )
+        gaze_x, gaze_y = get_valid_gaze(row, background_data)
+        visited_bboxes = get_visited_bboxes(
+            timeseries_bboxes,
+            gaze_x,
+            gaze_y,
+        )
+        return {
+            "n_points": n_points,
+            "area_x": area_x,
+            "area_y": area_y,
+            "points_x": points_x,
+            "points_y": points_y,
+            "gaze_x": gaze_x,
+            "gaze_y": gaze_y,
+            "timeseries_bboxes": timeseries_bboxes,
+            "visited_bboxes": visited_bboxes,
+        }
+
+    def plot_analysis(self, analysis_results: dict[str, Any]):
+        fig, ax = plt.subplots(figsize=(14, 7))
+        ax.set_title("Input data with gaze-visited time-series bounding boxes", fontsize=13)
+        ax.set_xlabel("Center-origin x (px)")
+        ax.set_ylabel("Center-origin y (px)")
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(-analysis_results['area_x'] / 2.0, analysis_results['area_x'] / 2.0)
+        ax.set_ylim(-analysis_results['area_y'] / 2.0, analysis_results['area_y'] / 2.0)
+        ax.plot(analysis_results['points_x'], analysis_results['points_y'], color="#9aa0a6", linewidth=1.0, alpha=0.35)
+        ax.scatter(analysis_results['points_x'], analysis_results['points_y'],
+                   c=np.linspace(0.0, 1.0, analysis_results["n_points"]), cmap="viridis", s=18, edgecolors="none",
+                   alpha=0.9)
+
+        ax.scatter(analysis_results['gaze_x'], analysis_results['gaze_y'], s=10, c="black", alpha=0.2,
+                   label="gaze samples")
+
+        channel_palette = plt.get_cmap("tab10")
+        setup_ax_rectanulars(analysis_results, ax, channel_palette)
+        plt.tight_layout()
+        plt.show()
+
+class BBoxTextAnalyzer(BaseAnalyzer):
+
+    def __init__(
+        self,
+        output_folder: Path,
+        config: CustomConfig = None,
+    ):
+        super().__init__(output_folder, config=config)
+
+    def analyze(self, background_data: pd.DataFrame) -> dict[str, Any]:
+        row = background_data.iloc[0]
+        text_bboxes = extract_text_bboxes(
+            row["objects_bboxes"],
+            level="words",
+        )
+        if not text_bboxes:
+            raise ValueError(
+                "No word bounding boxes were found in objects_bboxes."
+            )
+        gaze_x, gaze_y = extract_gaze_points(row, background_data)
+        area_x, area_y = self.config.get_area_of_interest_size()
+        visited_indices = set()
+        samples_per_word = {}
+        bbox_padding = 0.0
+        for word_idx, word_info in enumerate(text_bboxes):
+            bbox = word_info["bbox"]
+            inside = gaze_inside_bbox(
+                gaze_x,
+                gaze_y,
+                bbox,
+                padding=bbox_padding,
+            )
+            sample_count = int(np.count_nonzero(inside))
+            samples_per_word[word_idx] = sample_count
+            if sample_count > 0:
+                visited_indices.add(word_idx)
+        return {
+            "area_x": area_x,
+            "area_y": area_y,
+            "gaze_x": gaze_x,
+            "gaze_y": gaze_y,
+            "text_bboxes": text_bboxes,
+            "visited_indices": visited_indices,
+            "samples_per_word": samples_per_word,
+        }
+
+    def plot_analysis(self, analysis_results: dict[str, Any]):
+
+        fig, ax = plt.subplots(figsize=(14, 7))
+
+        ax.set_title(
+            "Text with gaze-visited word bounding boxes",
+            fontsize=13,
+        )
+        ax.set_xlabel("Center-origin x (px)")
+        ax.set_ylabel("Center-origin y (px)")
+        ax.set_aspect("equal", adjustable="box")
+
+        ax.set_xlim(-analysis_results['area_x'] / 2.0, analysis_results['area_x'] / 2.0)
+        ax.set_ylim(-analysis_results['area_y'] / 2.0, analysis_results['area_y'] / 2.0)
+
+        # Draw gaze trajectory before individual samples.
+        if analysis_results["gaze_x"].size > 0:
+            ax.plot(
+                analysis_results['gaze_x'],
+                analysis_results['gaze_y'],
+                color="black",
+                linewidth=0.7,
+                alpha=0.12,
+                zorder=2,
+            )
+
+            ax.scatter(
+                analysis_results['gaze_x'],
+                analysis_results['gaze_y'],
+                s=12,
+                c="black",
+                alpha=0.22,
+                edgecolors="none",
+                label="gaze samples",
+                zorder=3,
+            )
+
+        for word_idx, word_info in enumerate(analysis_results['text_bboxes']):
+            word = str(word_info.get("word", ""))
+            bbox = word_info["bbox"]
+            x_min = bbox["cx"] - bbox["w"] / 2.0
+            y_min = bbox["cy"] - bbox["h"] / 2.0
+
+            is_visited = word_idx in analysis_results['visited_indices']
+
+            edge_color = "red" if is_visited else "#4285f4"
+            text_color = "#b00020" if is_visited else "#202124"
+            face_color = "#ffebee" if is_visited else "#e8f0fe"
+            line_width = 2.5 if is_visited else 1.0
+            fill_alpha = 0.40 if is_visited else 0.18
+
+            rect = Rectangle(
+                (x_min, y_min),
+                bbox["w"],
+                bbox["h"],
+                facecolor=face_color,
+                edgecolor=edge_color,
+                linewidth=line_width,
+                alpha=fill_alpha,
+                zorder=1,
+            )
+            ax.add_patch(rect)
+
+            # Use bbox height as a rough guide for readable font size.
+            font_size = max(8.0, min(18.0, bbox["h"] * 0.30))
+
+            ax.text(
+                bbox["cx"],
+                bbox["cy"],
+                word,
+                ha="center",
+                va="center",
+                fontsize=font_size,
+                color=text_color,
+                fontweight="bold" if is_visited else "normal",
+                zorder=4,
+            )
+
+            # Optional annotation with the number of gaze samples.
+            if is_visited:
+                ax.text(
+                    bbox["cx"],
+                    y_min + bbox["h"] + 5,
+                    f"n={analysis_results['samples_per_word'][word_idx]}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color="red",
+                    zorder=5,
+                )
+
+        # Invisible legend elements explaining bbox colors.
+        ax.plot(
+            [],
+            [],
+            color="red",
+            linewidth=2.5,
+            label="gaze-visited word",
+        )
+        ax.plot(
+            [],
+            [],
+            color="#4285f4",
+            linewidth=1.0,
+            label="unvisited word",
+        )
+
+        ax.legend(loc="upper right")
+        ax.grid(alpha=0.12)
+
+        plt.tight_layout()
+        plt.show()
+
+        visited_words = [
+            analysis_results['text_bboxes'][idx].get("word", "")
+            for idx in sorted(analysis_results['visited_indices'])
+        ]
+
+        print("Visited words:", visited_words)
+        print(
+            "Gaze samples per word:",
+            {
+                analysis_results['text_bboxes'][idx].get("word", ""): analysis_results['samples_per_word'][idx]
+                for idx in range(len(analysis_results['text_bboxes']))
+            },
+        )

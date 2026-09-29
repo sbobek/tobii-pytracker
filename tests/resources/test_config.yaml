@@ -1,0 +1,32 @@
+dataset:
+  image:
+    bbox_model: superpixel
+    path: datasets
+
+display:
+  monitor:
+    name: test_monitor
+    resolution: [1920, 1080]
+    width: 35
+    distance: 60
+  gui:
+    button:
+      size: [250, 100]
+      margin: 20
+      color: lightgrey
+      text:
+        color: black
+        size: 30
+    fixation_dot:
+      size: 10
+      color: white
+    aoe: [750, 750]
+
+output:
+  folder: output
+
+instructions:
+  intro:
+    - "Test intro"
+  outro:
+    - "Test outro"

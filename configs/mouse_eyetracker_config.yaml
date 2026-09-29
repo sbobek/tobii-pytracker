@@ -30,29 +30,29 @@ eyetracker.hw.mouse.EyeTracker:
         #
         randomize: True
 
-        # auto_pace can be True or False. If True, the eye tracker will 
+        # auto_pace can be True or False. If True, the eye tracker will
         # automatically progress from one calibration point to the next.
         # If False, a manual key or button press is needed to progress to
         # the next point.
         #
         auto_pace: True
-        
+
         # pacing_speed is the number of sec.msec that a calibration point should
         # be displayed before moving onto the next point when auto_pace is set to true.
         # If auto_pace is False, pacing_speed is ignored.
         #
         pacing_speed: 1.5
-        
-        # screen_background_color specifies the r,g,b background color to 
+
+        # screen_background_color specifies the r,g,b background color to
         # set the calibration, validation, etc, screens to. Each element of the color
         # should be a value between 0 and 255. 0 == black, 255 == white.
         #
         screen_background_color: black
-        
+
         # Target type defines what form of calibration graphic should be used
         # during calibration, validation, etc. modes.
         # Currently the Tobii implementation supports the following
-        # target type: CIRCLE_TARGET. 
+        # target type: CIRCLE_TARGET.
         # To do: Add support for other types, etc.
         #
         target_type: CIRCLE_TARGET
@@ -60,9 +60,9 @@ eyetracker.hw.mouse.EyeTracker:
         color_type: rgb
 
         unit_type: pix
-        
+
         # The associated target attribute properties can be supplied
-        # for the given target_type. 
+        # for the given target_type.
         target_attributes:
              # CIRCLE_TARGET is drawn using two PsychoPy
              # Circle Stim. The _outer_ circle is drawn first, and should be
@@ -70,30 +70,30 @@ eyetracker.hw.mouse.EyeTracker:
              # outer circle. The target_attributes starting with 'outer_' define
              # how the outer circle of the calibration targets should be drawn.
              # The target_attributes starting with 'inner_' define
-             # how the inner circle of the calibration targets should be drawn. 
+             # how the inner circle of the calibration targets should be drawn.
              #
              # outer_diameter: The size of the outer circle of the calibration target
              #
              outer_diameter: 40
-             # outer_stroke_width: The thickness of the outer circle edge. 
+             # outer_stroke_width: The thickness of the outer circle edge.
              #
              outer_stroke_width: 4
-             # outer_fill_color: RGB255 color to use to fill the outer circle. 
+             # outer_fill_color: RGB255 color to use to fill the outer circle.
              #
              outer_fill_color: white
-             # outer_line_color: RGB255 color to used for the outer circle edge. 
+             # outer_line_color: RGB255 color to used for the outer circle edge.
              #
              outer_line_color: white
              # inner_diameter: The size of the inner circle calibration target
              #
              inner_diameter: 10
-             # inner_stroke_width: The thickness of the inner circle edge. 
+             # inner_stroke_width: The thickness of the inner circle edge.
              #
              inner_stroke_width: 2
-             # inner_fill_color: RGB255 color to use to fill the inner circle. 
+             # inner_fill_color: RGB255 color to use to fill the inner circle.
              #
              inner_fill_color: grey
-             # inner_line_color: RGB255 color to used for the inner circle edge. 
+             # inner_line_color: RGB255 color to used for the inner circle edge.
              #
              inner_line_color: grey
              # The Tobii Calibration routine supports using moving target graphics.
@@ -109,28 +109,28 @@ eyetracker.hw.mouse.EyeTracker:
                  # graphic should use when gliding from one calibration
                  # point to another. Always in pixels / second.
                  #
-                 movement_velocity: 600.0 
+                 movement_velocity: 600.0
                  # expansion_ratio: The outer circle of the calibration target
                  # can expand (and contract) when displayed at each position.
-                 # expansion_ratio gives the largest size of the outer circle 
+                 # expansion_ratio gives the largest size of the outer circle
                  # as a ratio of the outer_diameter length. For example,
                  # if outer_diameter = 30, and expansion_ratio = 2.0, then
-                 # the outer circle of each calibration point will expand out 
+                 # the outer circle of each calibration point will expand out
                  # to 60 pixels. Set expansion_ratio to 1.0 for no expansion.
-                 # 
+                 #
                  expansion_ratio: 3.0
                  # expansion_speed: The rate at which the outer circle
-                 # graphic should expand. Always in pixels / second. 
-                 # 
+                 # graphic should expand. Always in pixels / second.
+                 #
                  expansion_speed: 30.0
                  # contract_only: If the calibration target should expand from
                  # the outer circle initial diameter to the larger diameter
-                 # and then contract back to the original diameter, set 
+                 # and then contract back to the original diameter, set
                  # contract_only to False. To only have the outer circle target
                  # go from an expanded state to the smaller size, set this to True.
                  #
                  contract_only: True
-                 
+
     runtime_settings:
         # How many samples / second should Mousegaze Generate.
         # 50 or 100 hz are supported.

@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - test-bbox-image-dataset-tuning
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python 3.10 tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install headless PsychoPy system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglu1-mesa \
+            libgl1-mesa-dri \
+            xvfb
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Upgrade packaging tools
+        run: |
+          python -m pip install --upgrade \
+            pip \
+            setuptools \
+            wheel
+
+      - name: Install project
+        run: python -m pip install -e .
+
+      - name: Install test tooling
+        run: python -m pip install pytest pytest-cov
+
+      - name: Install scikit-image
+        run: python -m pip install "scikit-image>=0.24,<0.26"
+
+      - name: Install PsychoPy runtime dependency
+        run: python -m pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
+
+      - name: Ensure test dataset directory exists
+        run: mkdir -p datasets
+
+      - name: Run tests with coverage in virtual X display
+        env:
+          PYTHONUNBUFFERED: "1"
+          DISPLAY: ":99"
+        run: |
+          xvfb-run -a \
+            -s "-screen 0 1280x1024x24" \
+            pytest tests -v \
+              --cov=src/tobii_pytracker \
+              --cov-report=term \
+              --cov-report=xml:coverage.xml \
+              --cov-report=html:htmlcov
+
+      - name: Calculate coverage
+        id: coverage
+        run: |
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("coverage.xml").getroot()
+          pct = float(root.attrib["line-rate"]) * 100
+
+          if pct >= 90:
+              label = "coverage: excellent (>=90%)"
+          elif pct >= 80:
+              label = "coverage: good (80-89%)"
+          elif pct >= 70:
+              label = "coverage: fair (70-79%)"
+          else:
+              label = "coverage: low (<70%)"
+
+          print(f"Coverage: {pct:.2f}%")
+          print(f"Coverage label: {label}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"coverage_pct={pct:.2f}\n")
+              f.write(f"coverage_label={label}\n")
+          PY
+
+      - name: Upload coverage XML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: error
+
+      - name: Upload HTML line coverage report
+        id: coverage_html_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
+          if-no-files-found: error
+
+      - name: Publish coverage summary
+        run: |
+          COVERAGE_ARTIFACT_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.coverage_html_artifact.outputs.artifact-id }}"
+
+          echo "### Test coverage: ${{ steps.coverage.outputs.coverage_pct }}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Coverage label: \`${{ steps.coverage.outputs.coverage_label }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Open line-level coverage report (HTML)](${COVERAGE_ARTIFACT_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    name: Build package
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Upgrade packaging tools
+        run: |
+          python -m pip install --upgrade \
+            pip \
+            setuptools \
+            wheel \
+            build \
+            twine
+
+      - name: Build distribution
+        run: python -m build
+
+      - name: Check distribution
+        run: python -m twine check dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: tobii-pytracker-dist
+          path: dist/
+          if-no-files-found: error

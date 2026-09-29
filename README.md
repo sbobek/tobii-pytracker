@@ -109,7 +109,7 @@ Different datasets can be specified in the config file that will be processed an
 ## Custom Model
 
 The custom model for detecting bounding boxes fro possible area of interest is optional. 
-Every dataset class has its own bounding-box detection method (words for text, bins dor time-series, superpixels for images).
+Every dataset class has its own bounding-box detection method (words for text, bins dor time-series, polygons for image superpixels).
 However, you might want to change it with your custom implementation.
 It is desired, when you want to get bounding box from external model at the runtime, because for instance screenshots have format or size which is not used by you detection model and cannot be use post-hoc.
 

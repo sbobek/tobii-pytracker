@@ -1,7 +1,7 @@
 dataset:
   image:
-    bbox_model:  grid #grid | superpixel | saliency
-    path: datasets/coindefect6k
+    bbox_model:  superpixel #grid | superpixel | saliency
+    path: datasets/varia
 
   # text:
   #   label_column_name: sentiment
@@ -23,8 +23,8 @@ display:
   monitor: 
     name: spectrum_monitor
     resolution:
-      - 2560 #1920 #3440
-      - 1440 #1200 #1440
+      - 1920
+      - 1080
     width: 35
     distance: 60
     display_number: 0

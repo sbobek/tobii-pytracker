@@ -1,0 +1,23 @@
+version: '3.8'
+
+# Development compose file with hot reload and debugging support
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  tobii-pytracker:
+    # Mount source code for live editing
+    volumes:
+      - ./src:/app/src:rw
+      - ./configs:/app/configs:rw
+      - ./datasets:/app/datasets:ro
+      - ./output:/app/output:rw
+      - ./custom_runtime_models:/app/custom_runtime_models:rw
+    
+    # Enable debug logging
+    environment:
+      - LOG_LEVEL=debug
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    # Keep container running for debugging
+    stdin_open: true
+    tty: true
