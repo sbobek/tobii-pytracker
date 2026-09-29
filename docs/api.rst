@@ -31,6 +31,9 @@ Analyzers
     tobii_pytracker.analyze.ClusterAnalyzer
     tobii_pytracker.analyze.ScanpathsAnalyzer
     tobii_pytracker.analyze.VoiceTranscription
+    tobii_pytracker.analyze.BBoxTextAnalyzer
+    tobii_pytracker.analyze.BBoxImagesAnalyzer
+    tobii_pytracker.analyze.BBoxTimeSeriesAnalyzer
 
 
 
