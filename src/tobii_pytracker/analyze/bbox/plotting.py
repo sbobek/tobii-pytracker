@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.patches import Rectangle
 
 from .geometry import polygon_to_plot_coords, polygon_vertices
 
@@ -189,3 +190,73 @@ def plot_bbox_attention(
         plt.close(fig)
 
     return fig, ax
+
+
+def setup_ax_rectanulars(analysis_results: dict[str, Any], ax, channel_palette: Colormap):
+    for bbox_info in analysis_results['timeseries_bboxes']:
+        bbox = bbox_info["bbox"]
+        channel_idx = int(bbox_info.get("channel_idx", 0))
+        is_visited = bbox_info in analysis_results['visited_bboxes']
+        edge_color = "red" if is_visited else channel_palette(channel_idx % 10)
+        line_width = 2.4 if is_visited else 1.0
+        alpha = 1.0 if is_visited else 0.55
+
+        rect = Rectangle(
+            (bbox["cx"] - bbox["w"] / 2.0, bbox["cy"] - bbox["h"] / 2.0),
+            bbox["w"],
+            bbox["h"],
+            fill=False,
+            linewidth=line_width,
+            edgecolor=edge_color,
+            alpha=alpha,
+        )
+        ax.add_patch(rect)
+
+
+def add_rect_to_image_bbox(analysis_results: dict[str, Any], ax, bbox_palette: Colormap):
+    for bbox_idx, bbox_info in enumerate(analysis_results["image_bboxes"]):
+        bbox = bbox_info["bbox"]
+
+        x_min = float(bbox["cx"]) - float(bbox["w"]) / 2.0
+        y_min = float(bbox["cy"]) - float(bbox["h"]) / 2.0
+        width = float(bbox["w"])
+        height = float(bbox["h"])
+
+        is_visited = bbox_idx in analysis_results["visited_bbox_indices"]
+
+        edge_color = (
+            "red"
+            if is_visited
+            else bbox_palette(bbox_idx % bbox_palette.N)
+        )
+        line_width = 2.8 if is_visited else 2.0
+        alpha = 1.0 if is_visited else 1.0
+
+        rect = Rectangle(
+            (x_min, y_min),
+            width,
+            height,
+            fill=False,
+            linewidth=line_width,
+            edgecolor=edge_color,
+            alpha=alpha,
+            zorder=2,
+        )
+        ax.add_patch(rect)
+
+        ax.text(
+            x_min + 4,
+            y_min + height - 6,
+            f"{bbox_idx}: {analysis_results['gaze_hits_per_bbox'][bbox_idx]}",
+            color="red" if is_visited else edge_color,
+            fontsize=7,
+            fontweight="bold" if is_visited else "normal",
+            verticalalignment="top",
+            bbox={
+                "facecolor": "white",
+                "edgecolor": "none",
+                "alpha": 0.55,
+                "pad": 1.0,
+            },
+            zorder=3,
+        )

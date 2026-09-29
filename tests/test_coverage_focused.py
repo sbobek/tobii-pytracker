@@ -53,10 +53,10 @@ class TestDataLoaderCoverage(unittest.TestCase):
     def test_data_loader_output_root_not_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            # Don't create output directory
+            
             cfg = self._create_config(tmp_path)
             
-            # Override output folder to a non-existent path
+            
             cfg.config["output"]["folder"] = "nonexistent"
             
             with self.assertRaises(FileNotFoundError):
@@ -67,7 +67,7 @@ class TestDataLoaderCoverage(unittest.TestCase):
             tmp_path = Path(tmp)
             config = self._create_config(tmp_path)
             
-            # Create subject directory without data.csv
+            
             subject_dir = tmp_path / "output" / "subject_1"
             subject_dir.mkdir()
             
@@ -90,14 +90,14 @@ class TestDataLoaderCoverage(unittest.TestCase):
             tmp_path = Path(tmp)
             config = self._create_config(tmp_path)
             
-            # Create subject directory with data.csv containing empty gaze_data
+            
             subject_dir = tmp_path / "output" / "subject_1"
             subject_dir.mkdir()
             
             data_csv = subject_dir / "data.csv"
             df = pd.DataFrame({
                 "slide_number": [1, 2],
-                "gaze_data": ["[]", "[]"],  # Empty gaze data
+                "gaze_data": ["[]", "[]"],  
                 "screenshot_file": ["img1.png", "img2.png"],
             })
             df.to_csv(data_csv, sep=";", index=False)
@@ -105,7 +105,7 @@ class TestDataLoaderCoverage(unittest.TestCase):
             loader = DataLoader(config, root=tmp_path)
             result = loader._flatten_gaze_data(df, "subject_1")
             
-            # Should result in empty or minimal dataframe
+            
             self.assertIsInstance(result, pd.DataFrame)
 
     def test_flatten_gaze_data_single_eye_values(self):
@@ -118,7 +118,7 @@ class TestDataLoaderCoverage(unittest.TestCase):
             
             data_csv = subject_dir / "data.csv"
             
-            # Create gaze data with only left eye
+            
             gaze_data = json.dumps([
                 {
                     "gaze_x_left": 100.0,
@@ -141,9 +141,9 @@ class TestDataLoaderCoverage(unittest.TestCase):
             loader = DataLoader(config, root=tmp_path)
             result = loader._flatten_gaze_data(df, "subject_1")
             
-            # Check that result contains data
+            
             self.assertGreater(len(result), 0)
-            # Check that single eye values are used for average
+            
             self.assertIn("avg_gaze_x", result.columns)
 
     def test_get_slide_data_index_out_of_range(self):
@@ -172,7 +172,7 @@ class TestDataLoaderCoverage(unittest.TestCase):
             tmp_path = Path(tmp)
             config = self._create_config(tmp_path)
             
-            # Create two subjects
+            
             for subject in ["subject_1", "subject_2"]:
                 subject_dir = tmp_path / "output" / subject
                 subject_dir.mkdir()
@@ -209,14 +209,14 @@ class TestDataLoaderCoverage(unittest.TestCase):
             
             loader = DataLoader(config, root=tmp_path)
             
-            # This function will raise an exception
+            
             def bad_func(df):
                 raise ValueError("Test error")
             
-            # add_column doesn't return anything, but should handle exceptions gracefully
+            
             loader.add_column("subject_1", "test_col", func=bad_func, save=False)
             
-            # Check that the file still exists and wasn't modified
+            
             self.assertTrue(data_csv.exists())
 
 
@@ -284,7 +284,7 @@ class TestCustomConfigCoverage(unittest.TestCase):
             output_dir.mkdir()
             
             cfg = self._create_base_cfg()
-            cfg["display"]["gui"]["button"]["text"]["color"] = 123  # Should be string
+            cfg["display"]["gui"]["button"]["text"]["color"] = 123  
             
             cfg_path = tmp_path / "config.yaml"
             cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
@@ -299,7 +299,7 @@ class TestCustomConfigCoverage(unittest.TestCase):
             output_dir.mkdir()
             
             cfg = self._create_base_cfg()
-            cfg["display"]["gui"]["button"]["text"]["size"] = "30"  # Should be int
+            cfg["display"]["gui"]["button"]["text"]["size"] = "30"  
             
             cfg_path = tmp_path / "config.yaml"
             cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
@@ -371,7 +371,7 @@ class TestCustomConfigCoverage(unittest.TestCase):
             cfg["bbox_model"] = {
                 "folder": "models",
                 "module": "custom_model"
-                # Missing "class" field
+                
             }
             
             cfg_path = tmp_path / "config.yaml"
@@ -389,7 +389,7 @@ class TestCustomConfigCoverage(unittest.TestCase):
             output_dir.mkdir()
             
             cfg = self._create_base_cfg()
-            cfg["output"] = {}  # Missing folder
+            cfg["output"] = {}  
             
             cfg_path = tmp_path / "config.yaml"
             cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
@@ -506,7 +506,7 @@ class TestCustomConfigCoverage(unittest.TestCase):
             output_dir.mkdir()
             
             cfg = self._create_base_cfg()
-            cfg["display"]["gui"]["aoe"] = [500]  # Should have 2 elements
+            cfg["display"]["gui"]["aoe"] = [500]  
             
             cfg_path = tmp_path / "config.yaml"
             cfg_path.write_text(yaml.safe_dump(cfg), encoding="utf-8")
