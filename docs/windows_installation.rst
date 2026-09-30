@@ -17,6 +17,16 @@ To install from source code::
 Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper::
 
    pip install  openai-whisper==20250625
+
+Virtual environment
+-------------------
+
+We encourage to run tobii-pytracker in a virtual environment:
+
+.. code-block:: bash
+
+   conda create -n pytracker-env python=3.10 -y
+   conda activate pytracker-env
   
 
 To run it in headless mode, just recording all of the gaze data from Tobii eye tracker just run the following command in the environment where tobii-pytracker is installed. 

@@ -66,7 +66,7 @@ Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
 
 Clone or download this repository to your local machine.
 
-    ```sh
+  ``` sh
    conda create --name pytracker-env python=3.10
    conda activate pytracker-env
    git clone https://github.com/sbobek/tobii-pytracker.git
@@ -198,7 +198,7 @@ The general configuration file should include the following fields:
 dataset:
   image:
     bbox_model:  superpixel #grid | superpixel | saliency
-    path: datasets/vehicles
+    path: datasets/varia
 
 display:
   monitor: 

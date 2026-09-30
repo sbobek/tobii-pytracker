@@ -38,6 +38,10 @@ To run it in headless mode, just recording all of the gaze data from Tobii eye t
 
    tobii-pytracker --disable_psychopy --raw_data
 
+Note that this requires Tobii Hardware to be connected and calibrated. In case you want to run it with mouse emulation, you can use the following command::
+
+   tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker
+
 .. toctree::
    :maxdepth: 2
    :caption: Installation

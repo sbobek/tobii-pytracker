@@ -15,31 +15,28 @@ scientific Python dependencies:
 
    sudo apt update
    sudo apt install -y \
-       python3.10 \
-       python3.10-venv \
-       python3.10-dev \
-       build-essential \
-       pkg-config \
-       libgl1 \
-       libglib2.0-0 \
-       libgtk-3-0 \
-       libsm6 \
-       libxext6 \
-       libxrender1 \
-       libxrandr2 \
-       libxi6 \
-       libxcursor1 \
-       libxinerama1 \
-       libxkbcommon-x11-0 \
-       libx11-xcb1 \
-       libxcb1 \
-       libfontconfig1 \
-       libfreetype6 \
-       libasound2 \
-       libsndfile1 \
-       libportaudio2 \
-       libusb-1.0-0 \
-       ffmpeg
+      build-essential \
+      pkg-config \
+      libgl1 \
+      libglib2.0-0 \
+      libgtk-3-0 \
+      libsm6 \
+      libxext6 \
+      libxrender1 \
+      libxrandr2 \
+      libxi6 \
+      libxcursor1 \
+      libxinerama1 \
+      libxkbcommon-x11-0 \
+      libx11-xcb1 \
+      libxcb1 \
+      libfontconfig1 \
+      libfreetype6 \
+      libasound2 \
+      libsndfile1 \
+      libportaudio2 \
+      libusb-1.0-0 \
+      ffmpeg
 
 On newer Ubuntu releases, ``libasound2`` may be provided through a
 time64-specific package. In that case, install the package suggested by
