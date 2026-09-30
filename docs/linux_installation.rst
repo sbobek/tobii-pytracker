@@ -1,4 +1,7 @@
 
+
+.. _linux_installation:
+
 Linux Installation
 ==================
 

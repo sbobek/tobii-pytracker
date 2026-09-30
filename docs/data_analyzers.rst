@@ -10,7 +10,7 @@ dispersion, identifying attended image regions, and aligning gaze with speech.
 Note, that all of the results can be reproduced from the scripts in ``examples`` directory.
 The examples directory contains jupyter notebooks for eah analyzers and for all supported modalities (text, image, and time-series)
 
-See `examples <https://github.com/tobii-pytracker/examples>`_  for more details.
+See `examples <https://github.com/sbobek/tobii-pytracker/tree/main/examples>`_  for more details.
 
 Analysis Units and Scope
 ------------------------
