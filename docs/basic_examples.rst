@@ -83,6 +83,10 @@ uses Whisper to create timestamped transcript segments and align them with
 gaze samples from the same item. This makes it possible to inspect where a
 participant was looking while a particular statement was spoken.
 
+Note that if you want to run the voice-transcription workflow, you need to install Whisper and its dependencies::
+
+   pip install openai-whisper==20250625
+
 The image example also demonstrates attention analysis based on automatically
 generated or predefined image regions. This can be used to determine which
 regions received gaze, estimate gaze coverage, and compare attended and
