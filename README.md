@@ -1,6 +1,6 @@
 [![PyPI](https://img.shields.io/pypi/v/tobii-pytracker)](https://pypi.org/project/tobii-pytracker/)  ![License](https://img.shields.io/github/license/sbobek/tobii-pytracker)
  ![PyPI - Downloads](https://img.shields.io/pypi/dm/tobii-pytracker) [![Documentation Status](https://readthedocs.org/projects/tobii-pytracker/badge/?version=latest)](https://tobii-pytracker.readthedocs.io/en/latest/?badge=latest)
-# Toolkit for AI-enhanced Eye-tracking data collection
+# Toolkit for AI-enhanced Eye-tracking data collection and analysis
 
 
 A Python framework for conducting **eyetracking-based experiments** on **perception** and **reasoning** in machine learning (ML) tasks, as well as for **data enrichment**.
@@ -37,9 +37,36 @@ The framework integrates multiple data modalities commonly used as inputs for ML
 
 ## Installation
 
-1. Clone or download this repository to your local machine.
+You can either install `tobii-pytracker` directly form PyPi, or from this GitHub repository. Note that installing from github may include more recent updates, but also possibly less stable version.
 
-    ```sh
+### PyPi
+
+Create virtual environtment and install `tobii-pytracker`
+
+``` sh
+   conda create --name pytracker-env python=3.10
+   conda activate pytracker-env
+   pip install tobii-pytracker
+```
+
+Install psychopy, with no-deps, to keep the installation simple and lightweight.
+Note that we need psychopy in a version at least 2024.1.4
+   
+   ```sh
+   pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
+   ```
+
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
+
+  ``` sh
+  pip install  openai-whisper==20250625
+  ```
+
+### Github repository
+
+Clone or download this repository to your local machine.
+
+  ``` sh
    conda create --name pytracker-env python=3.10
    conda activate pytracker-env
    git clone https://github.com/sbobek/tobii-pytracker.git
@@ -47,14 +74,18 @@ The framework integrates multiple data modalities commonly used as inputs for ML
    pip install .
    ```
 
-   Install psychopy, with no-deps, to keep the installation simple and lightweight.
-   Note that we need psychopy in a version at least 2024.1.4
+Install psychopy, with no-deps, to keep the installation simple and lightweight.
+Note that we need psychopy in a version at least 2024.1.4
    
    ```sh
    pip install "psychopy>=2024.1.4,<2025.1.0" --no-deps
    ```
 
+Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
 
+  ``` sh
+  pip install  openai-whisper==20250625
+  ```
 ## Usage
 
 1. To run the script, use the following command (make sure you have activated virtual environment):
@@ -98,7 +129,7 @@ Different datasets can be specified in the config file that will be processed an
 
     > NOTE: GUI will be created accordingly to this structure and class labels will be extracted from subfolder names within the dataset. If using custom model, remember to make them match class names.
 
-2. __Text datasets__ *(.csv)*:
+2. __Text datasets__ and __Time series datasets__ *(.csv)*:
     ```.
     ├── dataset.csv
     └── ...
@@ -167,7 +198,7 @@ The general configuration file should include the following fields:
 dataset:
   image:
     bbox_model:  superpixel #grid | superpixel | saliency
-    path: datasets/vehicles
+    path: datasets/varia
 
 display:
   monitor: 

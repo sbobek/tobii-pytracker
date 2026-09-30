@@ -10,5 +10,6 @@ Authors
 --------
 
 - Szymon Bobek <szymon.bobek@gmail.com>
+- Dmytro Polishchuk <dmitro.polischuk@gmail.com>
 - Sebastian Sęczyk <sebastian.seczyk@gmail.com>
 - Jakub Pleśniak <jakubpl2001@gmail.com>

@@ -1,7 +1,9 @@
 import importlib.util
 import subprocess, sys
 
+from importlib.metadata import version
 
+__version__ = version("tobii-pytracker")
 
 def _ensure_psychopy():
     if importlib.util.find_spec("psychopy") is None:
