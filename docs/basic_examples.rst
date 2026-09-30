@@ -39,14 +39,26 @@ The mouse-emulated eye tracker makes it possible to test the complete
 collection workflow without connecting a physical eye tracker. 
 Note that the directory contains already recorded output, so running the above command is not required to execute the analysis.
 
+Running Analysis
+------------------
+
 After collection, open the Jupyter notebook provided in the same example
 directory and run its cells. The notebook loads sessions from the ``output``
 directory, executes the relevant analyzers, and presents the resulting tables
 and visualizations.
 
+To run the analysis without collecting new data, simply open the notebook and execute its cells. The notebook will load the previously recorded output and demonstrate the analysis workflow.
+
+
 See the :ref:`Data Analyzers page <data_analyzers>` for descriptions
 of the analyzers, their parameters and analysis scopes, and guidance on
 interpreting their output.
+
+.. code-block:: console
+
+   cd examples/images
+   jupyterlab 
+
 
 Image Data Example
 ------------------
