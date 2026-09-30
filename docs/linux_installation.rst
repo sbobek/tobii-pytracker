@@ -43,7 +43,11 @@ scientific Python dependencies:
 
 On newer Ubuntu releases, ``libasound2`` may be provided through a
 time64-specific package. In that case, install the package suggested by
-``apt`` instead.
+``apt`` instead, for instance:
+
+.. code-block:: bash
+
+   sudo sudo apt install -y libasound2t64
 
 Virtual environment
 -------------------
