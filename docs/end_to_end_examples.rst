@@ -120,8 +120,8 @@ Testing Instructions
 
 Platform-specific native testing instructions are available in:
 
-* :ref:`Windows testing documentation <windows_installation>`_;
-* :ref:`Linux testing documentation <linux_installation>`__.
+* :ref:`Windows testing documentation <windows_installation>`;
+* :ref:`Linux testing documentation <linux_installation>`.
 
 The examples are designed to use Tobii-PyTracker from a the official repository.
 Follow the directory

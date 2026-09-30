@@ -3,6 +3,12 @@
 Basic Examples
 ==============
 
+All the examples are provided in the `examples <https://github.com/sbobek/tobii-pytracker/tree/main/examples>`_ directory.
+In order to run then, you need to clone the repository::
+
+   git clone https://github.com/sbobek/tobii-pytracker.git
+   cd tobii-pytracker/examples
+
 The basic examples demonstrate how to configure Tobii-PyTracker, collect
 multimodal experimental data, load previously recorded sessions, and apply the
 available data analyzers. Examples are provided for image, time-series, and
