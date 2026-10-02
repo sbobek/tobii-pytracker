@@ -19,6 +19,19 @@ Before running an example, install Tobii-PyTracker as described in the
 files in the example's ``configs`` directory to match the local environment
 and eye-tracker settings.
 
+For this basic examples, you only need to set your screen resolution correctly, 
+so that the experiment items are displayed in the correct size and position:
+
+.. code-block:: yaml
+   
+   # in configs/config.yaml
+   display:
+      monitor: 
+         name: spectrum_monitor
+         resolution:
+            - 1920 #change this to your screen width
+            - 1080 #change this to your screen height
+
 Each example already contains recorded output that can be used to run the
 analysis without collecting new data. A new recording is only required when
 testing the data-collection workflow or a modified experiment configuration.
