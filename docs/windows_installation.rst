@@ -31,7 +31,6 @@ We encourage to run tobii-pytracker in a virtual environment:
    conda activate pytracker-env
   
 
-To run it in headless mode, just recording all of the gaze data from Tobii eye tracker just run the following command in the environment where tobii-pytracker is installed. 
 To run it with mouse emulation, you can use the following command::
 
    tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker 

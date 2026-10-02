@@ -1,6 +1,11 @@
 Release notes
 ==============
 
+1.0.1 (2026-10-02)
+-------------
+* Bugfix patched with Linux incompatibility with Psychopy 2024.1.4
+* Docs updated
+
 1.0.0 (2026-09-24)
 -------------
 * Major release with significant improvements and new features.

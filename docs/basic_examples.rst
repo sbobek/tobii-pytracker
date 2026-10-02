@@ -7,9 +7,10 @@ All the examples are provided in the `examples <https://github.com/sbobek/tobii-
 In order to run then, you need to clone the repository::
 
    git clone https://github.com/sbobek/tobii-pytracker.git
-   cd tobii-pytracker/examples
+   cd tobii-pytracker
 
-The basic examples demonstrate how to configure Tobii-PyTracker, collect
+The examples are located in ``examples`` subdirectory, and each example has its own subdirectory with the experiment configuration, recorded output, and analysis notebook.
+They demonstrate how to configure Tobii-PyTracker, collect
 multimodal experimental data, load previously recorded sessions, and apply the
 available data analyzers. Examples are provided for image, time-series, and
 text stimuli.
@@ -46,11 +47,18 @@ directory and run:
 .. code-block:: console
 
    cd examples/images
-   tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
+   tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker --enable_voice
 
 The mouse-emulated eye tracker makes it possible to test the complete
 collection workflow without connecting a physical eye tracker. 
 Note that the directory contains already recorded output, so running the above command is not required to execute the analysis.
+
+In case you have a physical Tobii eye tracker connected, you can use the following command to collect gaze data from it:
+
+.. code-block:: console
+
+   cd examples/images
+   tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
 
 Running Analysis
 ------------------
