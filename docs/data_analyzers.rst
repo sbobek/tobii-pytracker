@@ -369,25 +369,29 @@ connected by gaze transitions [1]_.
 Attention to Image Regions
 --------------------------
 
-``BBoxAttentionAnalyzer`` assigns gaze samples or detected fixations to image
+``BBoxImagesAnalyzer`` assigns gaze samples or detected fixations to image
 regions stored in ``objects_bboxes``. These regions can represent manually
 defined Areas of Interest or regions generated using grid, superpixel, or
 saliency-based methods.
 
 .. code-block:: python
 
-   bbox_analyzer = BBoxAttentionAnalyzer(output_folder=output_dir)
-
-   scored_bboxes = bbox_analyzer.analyze(
-       raw_data=raw_slide_data,
-       gaze_data=slide_data,
-       use_fixations=False,
-   )
-
-   evaluation = bbox_analyzer.evaluate(scored_bboxes)
+   bbox_analyzer = BBoxImagesAnalyzer(output_folder=output_dir, config=config)
+   scores = bbox_analyzer.analyze(background_data=background_data)
+   bbox_analyzer.plot_analysis(
+            scored_bboxes=scores,
+            gaze_data=selected_gaze,
+            screenshot_path=screenshot_path,
+            set_name=set_name,
+            slide_index=slide_index,
+            top_k=25,
+            min_hits=1,
+            title=f'Grid bboxes - {set_name} slide {slide_index}',
+            save_path=plot_path,
+        )
 
 The scored-region output indicates which regions contain gaze observations.
-The evaluation includes:
+The scores includes:
 
 ``generated_bbox_count``
    Number of candidate image regions.
