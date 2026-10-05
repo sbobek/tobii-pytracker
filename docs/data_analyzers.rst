@@ -361,7 +361,7 @@ sequence and therefore contains information that is not available from a
 heatmap alone. Scanpaths are commonly represented as ordered fixations
 connected by gaze transitions [1]_.
 
-.. image:: https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/scanpath_example.png
+.. image:: https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/scanpaths_example.png
    :width: 700px
    :alt: Ordered transitions between consecutive fixations
    :align: center
