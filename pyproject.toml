@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tobii-pytracker"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Python-based framework for Tobii eye tracker experiments and multimodal interaction."
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
@@ -43,10 +43,12 @@ dependencies = [
   "openai-whisper>=20250625",
   'sounddevice==0.5.3',
   'soundfile==0.13.1',
+  'tables',
   'pyglet==1.5.27; platform_system == "Linux"',
   'pyglet==1.4.11; platform_system == "Windows"',
   'pywin32==311; platform_system == "Windows"',
-  'pyWinhook==1.6.2; platform_system == "Windows"'
+  'pyWinhook==1.6.2; platform_system == "Windows"',
+  "python-xlib; platform_system == 'Linux'",
 ]
 
 classifiers = [

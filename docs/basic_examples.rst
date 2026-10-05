@@ -3,7 +3,14 @@
 Basic Examples
 ==============
 
-The basic examples demonstrate how to configure Tobii-PyTracker, collect
+All the examples are provided in the `examples <https://github.com/sbobek/tobii-pytracker/tree/main/examples>`_ directory.
+In order to run then, you need to clone the repository::
+
+   git clone https://github.com/sbobek/tobii-pytracker.git
+   cd tobii-pytracker
+
+The examples are located in ``examples`` subdirectory, and each example has its own subdirectory with the experiment configuration, recorded output, and analysis notebook.
+They demonstrate how to configure Tobii-PyTracker, collect
 multimodal experimental data, load previously recorded sessions, and apply the
 available data analyzers. Examples are provided for image, time-series, and
 text stimuli.
@@ -12,6 +19,19 @@ Before running an example, install Tobii-PyTracker as described in the
 :ref:`Installation Instructions <installation>` and adjust the configuration
 files in the example's ``configs`` directory to match the local environment
 and eye-tracker settings.
+
+For this basic examples, you only need to set your screen resolution correctly, 
+so that the experiment items are displayed in the correct size and position:
+
+.. code-block:: yaml
+   
+   # in configs/config.yaml
+   display:
+      monitor: 
+         name: spectrum_monitor
+         resolution:
+            - 1920 #change this to your screen width
+            - 1080 #change this to your screen height
 
 Each example already contains recorded output that can be used to run the
 analysis without collecting new data. A new recording is only required when
@@ -27,20 +47,39 @@ directory and run:
 .. code-block:: console
 
    cd examples/images
-   tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
+   tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker --enable_voice
 
 The mouse-emulated eye tracker makes it possible to test the complete
 collection workflow without connecting a physical eye tracker. 
 Note that the directory contains already recorded output, so running the above command is not required to execute the analysis.
+
+In case you have a physical Tobii eye tracker connected, you can use the following command to collect gaze data from it:
+
+.. code-block:: console
+
+   cd examples/images
+   tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
+
+Running Analysis
+------------------
 
 After collection, open the Jupyter notebook provided in the same example
 directory and run its cells. The notebook loads sessions from the ``output``
 directory, executes the relevant analyzers, and presents the resulting tables
 and visualizations.
 
+To run the analysis without collecting new data, simply open the notebook and execute its cells. The notebook will load the previously recorded output and demonstrate the analysis workflow.
+
+
 See the :ref:`Data Analyzers page <data_analyzers>` for descriptions
 of the analyzers, their parameters and analysis scopes, and guidance on
 interpreting their output.
+
+.. code-block:: console
+
+   cd examples/images
+   jupyterlab 
+
 
 Image Data Example
 ------------------
@@ -76,6 +115,10 @@ included voice-transcription workflow demonstrates how ``VoiceTranscription``
 uses Whisper to create timestamped transcript segments and align them with
 gaze samples from the same item. This makes it possible to inspect where a
 participant was looking while a particular statement was spoken.
+
+Note that if you want to run the voice-transcription workflow, you need to install Whisper and its dependencies::
+
+   pip install openai-whisper==20250625
 
 The image example also demonstrates attention analysis based on automatically
 generated or predefined image regions. This can be used to determine which

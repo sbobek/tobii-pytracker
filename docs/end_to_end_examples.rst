@@ -1,8 +1,8 @@
 End-to-End Examples
 =====================
 
-Basic smoke-test examples are provided in the `examples <https://github.com/tobii-pytracker/examples>`_ directory.
-See the :ref:`Data Analyzers page <data_analyzers_section>` for more details.
+Basic smoke-test examples are provided in the `examples <https://github.com/mszac/tobii-pytracker-demo/tree/main/examples>`_ directory.
+See the :ref:`Data Analyzers page <data_analyzers>` for more details.
 
 
 .. _end_to_end_examples_section:
@@ -25,8 +25,8 @@ UX A/B Experiment
 -----------------
 
 The
-`tobii_ux_ab_demo example
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/tobii_ux_ab_demo>`_
+`UX AB example
+<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/ux_ab_demo>`_
 is a more complete text-search experiment comparing early and late placement
 of target information.
 
@@ -43,22 +43,22 @@ See:
 
 * the
   `UX A/B README
-  <https://github.com/mszac/tobii-pytracker-demo/blob/main/examples/tobii_ux_ab_demo/README.md>`_
+  <https://github.com/mszac/tobii-pytracker-demo/blob/main/examples/ux_ab_demo/README.md>`_
   for execution and analysis instructions;
 * the
   `experiment description
-  <https://github.com/mszac/tobii-pytracker-demo/blob/main/examples/tobii_ux_ab_demo/EXPERIMENT.md>`_
+  <https://github.com/mszac/tobii-pytracker-demo/blob/main/examples/ux_ab_demo/EXPERIMENT.md>`_
   for the experimental design and interpretation;
 * the
   `analysis directory
-  <https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/tobii_ux_ab_demo/analysis>`_
+  <https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/ux_ab_demo/analysis>`_
   for the analysis implementation.
 
 Time Series Noise Demo
 ----------------------
 
 The `time-series noise demo
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/__previous-examples>`_
+<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/timeseries_noise_demo>`_
 demonstrates an experiment in which participants inspect time-series signals
 under different noise conditions.
 
@@ -76,7 +76,7 @@ Text Search Demo
 ----------------
 
 The `text-search demo
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/__previous-examples>`_
+<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/text_search_demo>`_
 demonstrates a visual-search task based on textual stimuli.
 
 Participants inspect text content and respond according to the information
@@ -89,8 +89,8 @@ detection, time to first fixation, and viewing time within relevant text
 regions.
 
 This demo provides the conceptual basis for the active
-`tobii_ux_ab_demo example
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/tobii_ux_ab_demo>`_,
+`UX AB example
+<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/ux_ab_demo>`_,
 which compares early and late placement of target information. Refer to the
 README, experiment description, and analysis files in the corresponding
 directory for the complete workflow.
@@ -99,7 +99,7 @@ Image Semantic Demo
 -------------------
 
 The `image-semantic demo
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/__previous-examples>`_
+<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/image_semantic_demo>`_
 demonstrates gaze collection and analysis for images representing different
 semantic categories.
 
@@ -113,24 +113,20 @@ extended with an appropriate number of participants, stimuli, repetitions,
 and statistical controls. Consult the corresponding demo directory for its
 stimuli, configuration, execution instructions, and analysis implementation.
 
-The active `smoke_images example
-<https://github.com/mszac/tobii-pytracker-demo/tree/main/examples/smoke_images>`_
-provides a smaller pipeline-validation version of an image-based workflow.
+
 
 Testing Instructions
 --------------------
 
 Platform-specific native testing instructions are available in:
 
-* `Windows testing documentation
-  <https://github.com/mszac/tobii-pytracker-demo/tree/main/docs/windows>`_;
-* `Linux testing documentation
-  <https://github.com/mszac/tobii-pytracker-demo/tree/main/docs/linux>`_.
+* :ref:`Windows testing documentation <windows_installation>`;
+* :ref:`Linux testing documentation <linux_installation>`.
 
 The examples are designed to use Tobii-PyTracker from a the official repository.
 Follow the directory
 layout and environment instructions in the selected example before running
 its commands.
 
-See the :ref:`Data Analyzers page <data_analyzers_section>` for descriptions
+See the :ref:`Data Analyzers page <data_analyzers>` for descriptions
 of the analyzers and interpretation of their outputs.

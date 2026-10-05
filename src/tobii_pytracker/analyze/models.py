@@ -2251,12 +2251,20 @@ from .bbox import (
 
 
 class BBoxImagesAnalyzer(BaseAnalyzer):
+    """
+    Analyzes gaze attention to object bounding boxes in slide images.
+
+    The analyzer parses ``objects_bboxes`` metadata, matches gaze samples to
+    detected boxes, and can evaluate and visualize the resulting attention
+    scores over a screenshot.
+    """
 
     def __init__(
         self,
         output_folder: Path,
         config: CustomConfig = None,
     ):
+        """Initialize the image bounding-box analyzer."""
         super().__init__(output_folder, config=config)
 
     @staticmethod
@@ -2296,6 +2304,20 @@ class BBoxImagesAnalyzer(BaseAnalyzer):
         self,
         background_data: pd.DataFrame,
     ) -> pd.DataFrame:
+        """
+        Calculate gaze-attention scores for image object bounding boxes.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Gaze data containing ``set_name``, ``slide_index``,
+            ``objects_bboxes``, ``avg_gaze_x``, and ``avg_gaze_y``.
+
+        Returns
+        -------
+        pd.DataFrame
+            Bounding-box attention scores and metadata.
+        """
         raw_cols = ['set_name', 'slide_index', 'objects_bboxes']
         gaze_cols = ['set_name', 'slide_index', 'avg_gaze_x', 'avg_gaze_y']
         
@@ -2337,6 +2359,7 @@ class BBoxImagesAnalyzer(BaseAnalyzer):
             show: bool = True,
             save_path: Optional[Path] = None,
     ):
+        """Plot image bounding boxes and their gaze-attention scores."""
         return plot_bbox_attention(
             scored_bboxes=scored_bboxes,
             gaze_data=gaze_data,
@@ -2371,15 +2394,38 @@ from .bbox import (
 )
 
 class BBoxTimeSeriesAnalyzer(BaseAnalyzer):
+    """
+    Analyzes gaze interaction with bounding boxes in time-series plots.
+
+    The analyzer extracts plotted data and time-series bounding boxes from a
+    slide, identifies boxes visited by gaze samples, and visualizes the plot
+    together with the gaze trajectory.
+    """
 
     def __init__(
         self,
         output_folder: Path,
         config: CustomConfig = None,
     ):
+        """Initialize the time-series bounding-box analyzer."""
         super().__init__(output_folder, config=config)
 
     def analyze(self, background_data: pd.DataFrame) -> dict[str, Any]:
+        """
+        Prepare a time-series plot and identify gaze-visited bounding boxes.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Slide data containing ``input_data``, ``objects_bboxes``, and
+            gaze coordinates. Input data is expected to be raw time-series data, whihc is already stored in ``data.csv`` file as a result experiment.
+
+        Returns
+        -------
+        dict[str, Any]
+            Plot coordinates, gaze coordinates, extracted boxes, and visited
+            box information.
+        """
         row = background_data.iloc[0]
         input_data = parse_input_data(row["input_data"])
         timeseries_bboxes = extract_timeseries_bboxes(row["objects_bboxes"])
@@ -2422,6 +2468,7 @@ class BBoxTimeSeriesAnalyzer(BaseAnalyzer):
         }
 
     def plot_analysis(self, analysis_results: dict[str, Any]):
+        """Plot the time series, gaze samples, and visited bounding boxes."""
         fig, ax = plt.subplots(figsize=(14, 7))
         ax.set_title("Input data with gaze-visited time-series bounding boxes", fontsize=13)
         ax.set_xlabel("Center-origin x (px)")
@@ -2443,15 +2490,36 @@ class BBoxTimeSeriesAnalyzer(BaseAnalyzer):
         plt.show()
 
 class BBoxTextAnalyzer(BaseAnalyzer):
+    """
+    Analyzes gaze attention to word-level text bounding boxes.
+
+    The analyzer extracts word boxes from ``objects_bboxes``, counts gaze
+    samples inside each box, and visualizes visited and unvisited words.
+    """
 
     def __init__(
         self,
         output_folder: Path,
         config: CustomConfig = None,
     ):
+        """Initialize the text bounding-box analyzer."""
         super().__init__(output_folder, config=config)
 
     def analyze(self, background_data: pd.DataFrame) -> dict[str, Any]:
+        """
+        Count gaze samples that fall inside each word bounding box.
+
+        Parameters
+        ----------
+        background_data : pd.DataFrame
+            Slide data containing ``objects_bboxes`` and gaze coordinates.
+
+        Returns
+        -------
+        dict[str, Any]
+            Text boxes, gaze coordinates, visited word indices, and sample
+            counts per word.
+        """
         row = background_data.iloc[0]
         text_bboxes = extract_text_bboxes(
             row["objects_bboxes"],
@@ -2489,6 +2557,7 @@ class BBoxTextAnalyzer(BaseAnalyzer):
         }
 
     def plot_analysis(self, analysis_results: dict[str, Any]):
+        """Plot word bounding boxes with gaze samples and visit counts."""
 
         fig, ax = plt.subplots(figsize=(14, 7))
 

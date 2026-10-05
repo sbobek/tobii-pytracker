@@ -1,4 +1,7 @@
 
+
+.. _linux_installation:
+
 Linux Installation
 ==================
 
@@ -32,15 +35,17 @@ scientific Python dependencies:
       libxcb1 \
       libfontconfig1 \
       libfreetype6 \
-      libasound2 \
+      libasound2t64 \
       libsndfile1 \
       libportaudio2 \
       libusb-1.0-0 \
       ffmpeg
 
-On newer Ubuntu releases, ``libasound2`` may be provided through a
-time64-specific package. In that case, install the package suggested by
-``apt`` instead.
+On older Ubuntu releases, ``libasound2t64`` may not be available. In that case, install the package suggested by ``apt`` instead, for example:
+
+.. code-block:: bash
+
+  sudo apt install -y libasound2
 
 Virtual environment
 -------------------
@@ -64,6 +69,12 @@ Install ``tobii-pytracker`` from PyPI:
 
    pip install tobii-pytracker
 
+**Caution** The early (version `2024.1.4`) psychopy package might not be compatible with the new version of Ubuntu.
+For that case, install the psychopy as follows:
+
+.. code-block:: bash
+
+   pip install "psychopy>2024.1.4,<2025.1.0" --no-deps
 
 Additionally, if you plan to use VoiceTranscriptionAnalyzer, install whisper:
 
@@ -113,3 +124,8 @@ The command-line interface can be tested with:
 .. code-block:: bash
 
    tobii-pytracker --help
+
+
+To run it with mouse emulation, you can use the following command::
+
+   tobii-pytracker --eyetracker_config_file ./configs/mouse_eyetracker_config.yaml --enable_eyetracker
