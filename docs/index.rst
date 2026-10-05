@@ -54,7 +54,7 @@ Note that this requires Tobii Hardware to be connected and calibrated. In case y
 .. toctree::
    :maxdepth: 2
    :caption: Tutorials on data collection
-   
+   Architecture Overview <usage_patterns>
    Quickstart examples <basic_examples>
    Experiment Configuration <configuration>
    Eyetracker emulation <mouse_emulation>
