@@ -25,7 +25,7 @@ so that the experiment items are displayed in the correct size and position:
 
 .. code-block:: yaml
    
-   # in configs/config.yaml
+   # in ./examples/<example_name>/configs/config.yaml
    display:
       monitor: 
          name: spectrum_monitor
@@ -60,6 +60,7 @@ In case you have a physical Tobii eye tracker connected, you can use the followi
    cd examples/images
    tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
 
+
 Running Analysis
 ------------------
 
@@ -79,6 +80,12 @@ interpreting their output.
 
    cd examples/images
    jupyterlab 
+
+
+The examples contain examples of usage for different analyzers. Each example has its own notebook with the analysis workflow and all contain following demonstrations:
+  1. loading_demo.ipynb -- Demonstrates how to load and visualize the collected data.
+  2. analyzers_demo.ipynb -- Shows how to use the different analyzers.
+  3. bbox_analysis.ipynb -- Illustrates how to perform gaze to raw data alignment with different bounding boxes analyzers
 
 
 Image Data Example
