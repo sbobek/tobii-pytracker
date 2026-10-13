@@ -61,6 +61,8 @@ In case you have a physical Tobii eye tracker connected, you can use the followi
    tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
 
 
+**Note:** The Tgaze will only be recorded if you press and hold the right mouse button while moving the mouse. This is to simulate the gaze movement and to allow blink simulation when the right mouse button is released. 
+
 Running Analysis
 ------------------
 

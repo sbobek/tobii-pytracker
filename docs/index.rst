@@ -69,6 +69,7 @@ Note that this requires Tobii Hardware to be connected and calibrated. In case y
 
    Data loading and visualization <data_loading_visualization>
    Data analyzers <data_analyzers>
+   Gaze-Data alignment <bbox_analyzers>
 
 
 .. toctree::

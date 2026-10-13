@@ -1,7 +1,7 @@
 services:
   tobii-pytracker:
     build:
-      context: ../.
+      context: ../../.
       dockerfile: Dockerfile
     container_name: tobii-pytracker
     environment:
