@@ -1,3 +1,5 @@
+.. _mouse_emulation:
+
 Mouse EyeTracker Emulation
 ===========================
 

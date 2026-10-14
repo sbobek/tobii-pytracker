@@ -16,7 +16,7 @@ Welcome to the Tobii-Pytracker documentation
 Install
 =======
 
-Tobii-Pytracker can be installed from either `PyPI <https://pypi.org/project/tobii-pytracker>`_ or directly from source code `GitHub <https://github.com/sbobek/tobii-pytracker>`_
+Tobii-Pytracker can be installed from either `PyPI <https://pypi.org/project/tobii-pytracker>`_ or directly from source code `GitHub <https://github.com/sbobek/tobii-pytracker>`_.
 Currently the software requires Python ">=3.10,<3.11" and is compatible with Windows, Linux, and Docker environments.
 
 To install form PyPI::
