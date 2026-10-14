@@ -1,5 +1,5 @@
 [![PyPI](https://img.shields.io/pypi/v/tobii-pytracker)](https://pypi.org/project/tobii-pytracker/)  ![License](https://img.shields.io/github/license/sbobek/tobii-pytracker)
- ![PyPI - Downloads](https://img.shields.io/pypi/dm/tobii-pytracker) [![Documentation Status](https://readthedocs.org/projects/tobii-pytracker/badge/?version=latest)](https://tobii-pytracker.readthedocs.io/en/latest/?badge=latest)
+ ![PyPI - Downloads](https://img.shields.io/pypi/dm/tobii-pytracker) [![Documentation Status](https://readthedocs.org/projects/tobii-pytracker/badge/?version=latest)](https://tobii-pytracker.readthedocs.io/en/latest/?badge=latest) ![Continuous Integration](https://github.com/sbobek/tobii-pytracker/actions/workflows/ci.yml/badge.svg)
 # Toolkit for AI-enhanced Eye-tracking data collection and analysis
 
 
