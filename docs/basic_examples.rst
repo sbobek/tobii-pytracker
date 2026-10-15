@@ -37,7 +37,7 @@ Each example already contains recorded output that can be used to run the
 analysis without collecting new data. A new recording is only required when
 testing the data-collection workflow or a modified experiment configuration.
 
-Running an Example
+Collecting Data
 ------------------
 
 For example, to collect gaze and voice data for the image-classification
