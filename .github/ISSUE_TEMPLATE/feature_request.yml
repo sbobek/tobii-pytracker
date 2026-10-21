@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest an improvement or new capability for Tobii-PyTracker
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an improvement to Tobii-PyTracker. Please describe the research or software use case and the proposed behavior.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Related component
+      options:
+        - Experiment or stimulus presentation
+        - Eye-tracker integration or gaze recording
+        - Voice recording
+        - Data loading or analysis
+        - Command-line interface
+        - Configuration
+        - Documentation or examples
+        - Installation or packaging
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation and use case
+      description: What problem or research workflow would this feature address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the requested behavior, interface, or workflow as concretely as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example usage
+      description: If possible, provide an example command, configuration fragment, or API usage.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workarounds or alternative approaches you considered.
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware or platform considerations
+      description: Identify any relevant eye-tracker model, operating system, display setup, or audio hardware.
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add references or examples that may help evaluate the request.
