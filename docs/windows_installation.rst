@@ -3,6 +3,7 @@
 Windows Installation
 =====================
 
+The package supports Windows systems running Python 3.10 or 3.11.
 Tobii-Pytracker can be installed from either `PyPI <https://pypi.org/project/tobii-pytracker>`_ or directly from source code `GitHub <https://github.com/sbobek/tobii-pytracker>`_
 
 To install form PyPI::

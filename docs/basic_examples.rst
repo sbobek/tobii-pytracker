@@ -25,7 +25,7 @@ so that the experiment items are displayed in the correct size and position:
 
 .. code-block:: yaml
    
-   # in configs/config.yaml
+   # in ./examples/<example_name>/configs/config.yaml
    display:
       monitor: 
          name: spectrum_monitor
@@ -37,7 +37,7 @@ Each example already contains recorded output that can be used to run the
 analysis without collecting new data. A new recording is only required when
 testing the data-collection workflow or a modified experiment configuration.
 
-Running an Example
+Collecting Data
 ------------------
 
 For example, to collect gaze and voice data for the image-classification
@@ -60,6 +60,16 @@ In case you have a physical Tobii eye tracker connected, you can use the followi
    cd examples/images
    tobii-pytracker --eyetracker_config_file ./configs/eyetracker_config.yaml --enable_eyetracker --enable_voice
 
+
+**Note:** The gaze will only be recorded if you press and hold the right mouse button while moving the mouse. This is to simulate the gaze movement and to allow blink simulation when the right mouse button is released. 
+
+.. image:: https://raw.githubusercontent.com/sbobek/tobii-pytracker/refs/heads/psychopy/pix/mouse-event.svg
+    :width: 40%
+    :align: center
+    :alt: Tobii-Pytracker Workflow
+
+See more details on mouse emulation in the :ref:`Mouse EyeTracker Emulation page <mouse_emulation>`.
+
 Running Analysis
 ------------------
 
@@ -79,6 +89,12 @@ interpreting their output.
 
    cd examples/images
    jupyterlab 
+
+
+The examples contain examples of usage for different analyzers. Each example has its own notebook with the analysis workflow and all contain following demonstrations:
+  1. loading_demo.ipynb -- Demonstrates how to load and visualize the collected data. For details see the :ref:`Data Loading and Visualization page <data_loading_visualization>`.
+  2. analyzers_demo.ipynb -- Shows how to use the different analyzers. For details see the :ref:`Data Analyzers page <data_analyzers>`.
+  3. bbox_analysis.ipynb -- Illustrates how to perform gaze to raw data alignment with different bounding boxes analyzers. For details see the :ref:`Data Analyzers page <bbox_analyzers>`.
 
 
 Image Data Example

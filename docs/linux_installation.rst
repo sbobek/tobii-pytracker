@@ -5,7 +5,7 @@
 Linux Installation
 ==================
 
-The package supports Linux systems running Python 3.10. The commands below
+The package supports Linux systems running Python 3.10 or 3.11. The commands below
 are intended for Debian- and Ubuntu-based distributions.
 
 System dependencies
